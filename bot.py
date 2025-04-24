@@ -24,6 +24,16 @@ async def on_ready():
 conversation_history = {}
 HISTORY_LIMIT = 1000  # Number of messages to keep per channel
 
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+    channel_id = message.channel.id
+    history = conversation_history.get(channel_id, [])
+    history.append({"role": "user", "content": message.content})
+    conversation_history[channel_id] = history[-HISTORY_LIMIT:]
+    await bot.process_commands(message)
+
 @bot.tree.command(name="chat", description="Chat with Ollama")
 @app_commands.describe(message="Your message to Ollama")
 async def chat(interaction: discord.Interaction, message: str):
@@ -31,15 +41,12 @@ async def chat(interaction: discord.Interaction, message: str):
     channel_id = interaction.channel_id
     # Get or create history for this channel
     history = conversation_history.get(channel_id, [])
-    # Append user message
+    # Append the /chat message as a user message
     history.append({"role": "user", "content": message})
-    # Trim history if needed
     history = history[-HISTORY_LIMIT:]
-    # Call Ollama with full history
     response = ask_ollama(history, OLLAMA_URL)
     # Append bot response
     history.append({"role": "assistant", "content": response})
-    # Trim again and save
     conversation_history[channel_id] = history[-HISTORY_LIMIT:]
     await interaction.followup.send(response)
 
