@@ -5,7 +5,7 @@ from ollama_client import ask_ollama
 import os
 
 TOKEN = os.getenv('DISCORD_TOKEN')
-OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://ollama:11434')
+OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://host.docker.internal:11435')
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -34,8 +34,8 @@ async def on_message(message):
     conversation_history[channel_id] = history[-HISTORY_LIMIT:]
     await bot.process_commands(message)
 
-@bot.tree.command(name="chat", description="Chat with Ollama")
-@app_commands.describe(message="Your message to Ollama")
+@bot.tree.command(name="chat", description="Chat with the CCP")
+@app_commands.describe(message="Your message to the CCP")
 async def chat(interaction: discord.Interaction, message: str):
     await interaction.response.defer()
     channel_id = interaction.channel_id

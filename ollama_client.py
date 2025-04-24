@@ -1,19 +1,25 @@
+import re
 import requests
 
 def ask_ollama(messages, ollama_url):
     payload = {
-        "model": "llama3",
+        "model": "deepseek-r1:8b",
         "messages": messages,
         "stream": False
     }
     try:
-        resp = requests.post(f"{ollama_url}/api/chat", json=payload, timeout=30)
+        resp = requests.post(f"{ollama_url}/api/chat", json=payload, timeout=90)
         resp.raise_for_status()
         data = resp.json()
         if 'message' in data:
-            return data['message'].get('content', 'No response from Ollama.')
+            content = data['message'].get('content', 'No response from the CCP.')
         elif 'messages' in data and data['messages']:
-            return data['messages'][-1].get('content', 'No response from Ollama.')
-        return data.get("response", "No response from Ollama.")
+            content = data['messages'][-1].get('content', 'No response from the CCP.')
+        else:
+            content = data.get("response", "No response from the CCP.")
+        # Remove <think>...</think> or leading <think> tags
+        content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+        content = re.sub(r'^<think>.*', '', content, flags=re.DOTALL)
+        return content.strip()
     except Exception as e:
-        return f"Error contacting Ollama: {e}"
+        return f"Error contacting the CCP: {e}"
