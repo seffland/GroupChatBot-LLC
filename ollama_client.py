@@ -1,18 +1,15 @@
 import requests
 
-def ask_ollama(message, ollama_url):
+def ask_ollama(messages, ollama_url):
     payload = {
         "model": "llama3",
-        "messages": [
-            {"role": "user", "content": message}
-        ],
+        "messages": messages,
         "stream": False
     }
     try:
         resp = requests.post(f"{ollama_url}/api/chat", json=payload, timeout=30)
         resp.raise_for_status()
         data = resp.json()
-        # Ollama's response is usually in 'message' or 'messages', adapt as needed
         if 'message' in data:
             return data['message'].get('content', 'No response from Ollama.')
         elif 'messages' in data and data['messages']:
