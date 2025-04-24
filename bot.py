@@ -8,6 +8,7 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://ollama:11434')
 
 intents = discord.Intents.default()
+intents.message_content = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 @bot.event
