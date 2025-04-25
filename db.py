@@ -109,6 +109,7 @@ def get_messages_after_user_last(channel_id: int, username: str) -> List[Dict[st
 def message_count(channel_id: int, days: int | str) -> int:
     """
     Returns the number of messages sent in the given channel in the last `days` days, or all time if days == 'all'.
+    If days == 0, returns the count for just today (UTC), using the same logic as /funniest.
     """
     with sqlite3.connect(DB_PATH) as conn:
         if days == 'all':
@@ -116,6 +117,30 @@ def message_count(channel_id: int, days: int | str) -> int:
                 "SELECT COUNT(*) FROM messages WHERE channel_id = ?",
                 (channel_id,)
             )
+            row = cursor.fetchone()
+            return row[0] if row else 0
+        elif days == 0:
+            from datetime import datetime, time, timezone
+            try:
+                from zoneinfo import ZoneInfo
+                eastern = ZoneInfo('America/New_York')
+            except ImportError:
+                import pytz
+                eastern = pytz.timezone('America/New_York')
+            now_est = datetime.now(eastern)
+            today_start_est = datetime.combine(now_est.date(), time(hour=0, minute=0), tzinfo=eastern)
+            # Convert EST start of day to UTC for DB query
+            today_start_utc = today_start_est.astimezone(timezone.utc)
+            today_start_str = today_start_utc.strftime('%Y-%m-%d %H:%M:%S')
+            cursor = conn.execute(
+                """
+                SELECT COUNT(*) FROM messages
+                WHERE channel_id = ? AND timestamp >= ?
+                """,
+                (channel_id, today_start_str)
+            )
+            row = cursor.fetchone()
+            return row[0] if row else 0
         else:
             cursor = conn.execute(
                 """
@@ -124,5 +149,5 @@ def message_count(channel_id: int, days: int | str) -> int:
                 """,
                 (channel_id, f'-{days} days')
             )
-        row = cursor.fetchone()
-        return row[0] if row else 0
+            row = cursor.fetchone()
+            return row[0] if row else 0

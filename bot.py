@@ -146,34 +146,44 @@ async def tldr(interaction: discord.Interaction):
     await interaction.followup.send(f"**TL;DR:**\n{summary}")
 
 @bot.tree.command(name="message_count", description="Show how many messages have been sent in this channel in the last N days")
-@app_commands.describe(days="Number of days to look back, or 'all' for all time")
+@app_commands.describe(days="Number of days to look back, today, or 'all' for all time")
 async def message_count_cmd(interaction: discord.Interaction, days: str):
     channel_id = interaction.channel_id
     if days.lower() == 'all':
         count = message_count(channel_id, 'all')
         await interaction.response.send_message(f"{count} messages have been sent all time in this channel.")
+    elif days.lower() == 'today':
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        # Pass 0 to mean today only, assuming message_count interprets 0 as today
+        count = message_count(channel_id, 0)
+        await interaction.response.send_message(f"{count} messages have been sent today in this channel.")
     else:
         try:
             days_int = int(days)
             count = message_count(channel_id, days_int)
             await interaction.response.send_message(f"{count} messages have been sent in the last {days_int} day(s) in this channel.")
         except ValueError:
-            await interaction.response.send_message("Please provide a number of days (e.g. 7) or 'all'.")
+            await interaction.response.send_message("Please provide a number of days (e.g. 7), 'today', or 'all'.")
 
 @bot.tree.command(name="funniest", description="Declare the funniest user based on :joy: reactions in this channel")
-@app_commands.describe(days="Number of days to look back, or 'all' for all time")
+@app_commands.describe(days="Number of days to look back, today, or 'all' for all time")
 async def funniest(interaction: discord.Interaction, days: str):
     channel = interaction.channel
     await interaction.response.defer(thinking=True)
     if days.lower() == 'all':
         after = None
+    elif days.lower() == 'today':
+        from datetime import datetime, timezone, time
+        now = datetime.now(timezone.utc)
+        after = datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
     else:
         try:
             days_int = int(days)
             from datetime import datetime, timedelta, timezone
             after = datetime.now(timezone.utc) - timedelta(days=days_int)
         except ValueError:
-            await interaction.followup.send("Please provide a number of days (e.g. 7) or 'all'.")
+            await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', or 'all'.")
             return
     user_joy_counts = {}
     async for msg in channel.history(limit=None, oldest_first=True, after=after):
