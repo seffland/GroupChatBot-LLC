@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from ollama_client import ask_ollama
-from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id, search_history, get_messages_after_user_last
+from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id, search_history, get_messages_after_user_last, message_count
 import os
 
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -144,6 +144,60 @@ async def tldr(interaction: discord.Interaction):
     if len(summary) > 1900:
         summary = summary[:1900] + "..."
     await interaction.followup.send(f"**TL;DR:**\n{summary}")
+
+@bot.tree.command(name="message_count", description="Show how many messages have been sent in this channel in the last N days")
+@app_commands.describe(days="Number of days to look back, or 'all' for all time")
+async def message_count_cmd(interaction: discord.Interaction, days: str):
+    channel_id = interaction.channel_id
+    if days.lower() == 'all':
+        count = message_count(channel_id, 'all')
+        await interaction.response.send_message(f"{count} messages have been sent all time in this channel.")
+    else:
+        try:
+            days_int = int(days)
+            count = message_count(channel_id, days_int)
+            await interaction.response.send_message(f"{count} messages have been sent in the last {days_int} day(s) in this channel.")
+        except ValueError:
+            await interaction.response.send_message("Please provide a number of days (e.g. 7) or 'all'.")
+
+@bot.tree.command(name="funniest", description="Declare the funniest user based on :joy: reactions in this channel")
+@app_commands.describe(days="Number of days to look back, or 'all' for all time")
+async def funniest(interaction: discord.Interaction, days: str):
+    channel = interaction.channel
+    await interaction.response.defer(thinking=True)
+    if days.lower() == 'all':
+        after = None
+    else:
+        try:
+            days_int = int(days)
+            from datetime import datetime, timedelta, timezone
+            after = datetime.now(timezone.utc) - timedelta(days=days_int)
+        except ValueError:
+            await interaction.followup.send("Please provide a number of days (e.g. 7) or 'all'.")
+            return
+    user_joy_counts = {}
+    async for msg in channel.history(limit=None, oldest_first=True, after=after):
+        if msg.author.bot:
+            continue
+        for reaction in msg.reactions:
+            # Check for joy emoji by unicode, name, or string
+            is_joy = False
+            if str(reaction.emoji) == '😂':
+                is_joy = True
+            elif hasattr(reaction.emoji, 'name') and reaction.emoji.name == 'joy':
+                is_joy = True
+            elif str(reaction.emoji) == ':joy:':
+                is_joy = True
+            if is_joy:
+                user_joy_counts[msg.author.name] = user_joy_counts.get(msg.author.name, 0) + reaction.count
+    if not user_joy_counts:
+        await interaction.followup.send("No :joy: reactions found in this channel for the given period.")
+        return
+    funniest_user = max(user_joy_counts, key=user_joy_counts.get)
+    funniest_count = user_joy_counts[funniest_user]
+    leaderboard = sorted(user_joy_counts.items(), key=lambda x: x[1], reverse=True)
+    leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :joy:" for i, (user, count) in enumerate(leaderboard)])
+    await interaction.followup.send(f"The funniest user is **{funniest_user}** with {funniest_count} :joy: reactions!\n\nLeaderboard:\n{leaderboard_str}")
 
 if __name__ == "__main__":
     bot.run(TOKEN)

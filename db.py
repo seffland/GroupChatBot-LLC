@@ -105,3 +105,24 @@ def get_messages_after_user_last(channel_id: int, username: str) -> List[Dict[st
         return [
             {"role": r[0], "username": r[1], "content": r[2]} for r in rows
         ]
+
+def message_count(channel_id: int, days: int | str) -> int:
+    """
+    Returns the number of messages sent in the given channel in the last `days` days, or all time if days == 'all'.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        if days == 'all':
+            cursor = conn.execute(
+                "SELECT COUNT(*) FROM messages WHERE channel_id = ?",
+                (channel_id,)
+            )
+        else:
+            cursor = conn.execute(
+                """
+                SELECT COUNT(*) FROM messages
+                WHERE channel_id = ? AND timestamp >= datetime('now', ?)
+                """,
+                (channel_id, f'-{days} days')
+            )
+        row = cursor.fetchone()
+        return row[0] if row else 0
