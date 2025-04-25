@@ -235,5 +235,78 @@ async def funniest(interaction: discord.Interaction, days: str):
     leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :joy:" for i, (user, count) in enumerate(leaderboard)])
     await interaction.followup.send(f"The funniest user is **{funniest_user}** with {funniest_count} :joy: reactions received!\n\nLeaderboard:\n{leaderboard_str}")
 
+@bot.tree.command(name="stingy", description="Declare the stingiest user based on who gives out the least :joy: reactions in this channel")
+@app_commands.describe(days="Number of days to look back, today, yesterday, or 'all' for all time")
+async def stingy(interaction: discord.Interaction, days: str):
+    channel = interaction.channel
+    await interaction.response.defer(thinking=True)
+    if days.lower() == 'all':
+        after = None
+        before = None
+    elif days.lower() == 'today':
+        from datetime import datetime, time, timezone
+        try:
+            from zoneinfo import ZoneInfo
+            eastern = ZoneInfo('America/New_York')
+        except ImportError:
+            import pytz
+            eastern = pytz.timezone('America/New_York')
+        now_est = datetime.now(eastern)
+        today_start_est = datetime.combine(now_est.date(), time(hour=0, minute=0), tzinfo=eastern)
+        after = today_start_est.astimezone(timezone.utc)
+        before = None
+    elif days.lower() == 'yesterday':
+        from datetime import datetime, time, timedelta, timezone
+        try:
+            from zoneinfo import ZoneInfo
+            eastern = ZoneInfo('America/New_York')
+        except ImportError:
+            import pytz
+            eastern = pytz.timezone('America/New_York')
+        now_est = datetime.now(eastern)
+        yesterday_date = now_est.date() - timedelta(days=1)
+        y_start_est = datetime.combine(yesterday_date, time(hour=0, minute=0), tzinfo=eastern)
+        y_end_est = datetime.combine(now_est.date(), time(hour=0, minute=0), tzinfo=eastern)
+        after = y_start_est.astimezone(timezone.utc)
+        before = y_end_est.astimezone(timezone.utc)
+    else:
+        try:
+            days_int = int(days)
+            from datetime import datetime, timedelta, timezone
+            after = datetime.now(timezone.utc) - timedelta(days=days_int)
+            before = None
+        except ValueError:
+            await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
+            return
+    user_joy_given = {}
+    async for msg in channel.history(limit=None, oldest_first=True, after=after, before=before):
+        for reaction in msg.reactions:
+            is_joy = False
+            if str(reaction.emoji) == '😂':
+                is_joy = True
+            elif hasattr(reaction.emoji, 'name') and reaction.emoji.name == 'joy':
+                is_joy = True
+            elif str(reaction.emoji) == ':joy:':
+                is_joy = True
+            if is_joy:
+                users = []
+                try:
+                    users = [user async for user in reaction.users()]
+                except Exception:
+                    continue
+                for user in users:
+                    if user.bot:
+                        continue
+                    user_joy_given[user.name] = user_joy_given.get(user.name, 0) + 1
+    if not user_joy_given:
+        await interaction.followup.send("No :joy: reactions given in this channel for the given period.")
+        return
+    # Only consider users who have given at least one :joy:
+    stingiest_user = min(user_joy_given, key=user_joy_given.get)
+    stingiest_count = user_joy_given[stingiest_user]
+    leaderboard = sorted(user_joy_given.items(), key=lambda x: x[1])
+    leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :joy:" for i, (user, count) in enumerate(leaderboard)])
+    await interaction.followup.send(f"The stingiest user is **{stingiest_user}** with only {stingiest_count} :joy: reactions given!\n\nLeaderboard (least to most):\n{leaderboard_str}")
+
 if __name__ == "__main__":
     bot.run(TOKEN)
