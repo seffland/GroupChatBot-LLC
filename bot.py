@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from ollama_client import ask_ollama
-from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id
+from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id, search_history
 import os
 
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -86,6 +86,27 @@ async def import_history(interaction: discord.Interaction):
     if imported > 0 and last_seen_id:
         set_last_imported_message_id(channel_id, last_seen_id)
     await interaction.followup.send(f"Imported {imported} new messages from this channel.")
+
+@bot.tree.command(name="search", description="Search the conversation history for a keyword in this channel")
+@app_commands.describe(query="The keyword or phrase to search for")
+async def search(interaction: discord.Interaction, query: str):
+    channel_id = interaction.channel_id
+    results = search_history(channel_id, query, limit=10)
+    if not results:
+        await interaction.response.send_message(f"No results found for '{query}'.")
+        return
+    formatted = []
+    for msg in results:
+        role = msg.get("role", "user")
+        username = msg.get("username", "user")
+        content = msg.get("content", "")
+        formatted.append(f"**{username} ({role.capitalize()}):** {content}")
+    output = "\n".join(formatted)
+    # Discord message limit is 2000 chars
+    if len(output) > 1900:
+        output = output[-1900:]
+        output = "...\n" + output
+    await interaction.response.send_message(output)
 
 if __name__ == "__main__":
     bot.run(TOKEN)

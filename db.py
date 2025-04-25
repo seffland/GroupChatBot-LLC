@@ -45,6 +45,21 @@ def get_history(channel_id: int, limit: int = 1000) -> List[Dict[str, Any]]:
             {"role": row[0], "username": row[1], "content": row[2]} for row in reversed(rows)
         ]
 
+def search_history(channel_id: int, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.execute(
+            """
+            SELECT role, username, content FROM messages
+            WHERE channel_id = ? AND content LIKE ?
+            ORDER BY id DESC LIMIT ?
+            """,
+            (channel_id, f"%{query}%", limit)
+        )
+        rows = cursor.fetchall()
+        return [
+            {"role": row[0], "username": row[1], "content": row[2]} for row in rows
+        ]
+
 def get_last_imported_message_id(channel_id: int) -> int:
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.execute(
