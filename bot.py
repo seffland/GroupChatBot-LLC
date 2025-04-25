@@ -26,6 +26,19 @@ async def on_ready():
 async def on_message(message):
     if message.author.bot:
         return
+    # If the bot is mentioned, treat as a chat request
+    if bot.user in message.mentions:
+        channel_id = message.channel.id
+        # Remove the mention from the message content
+        content = message.content.replace(f'<@{bot.user.id}>', '').strip()
+        add_message(channel_id, "user", message.author.name, content)
+        history = get_history(channel_id, HISTORY_LIMIT)
+        # Send the user's message as a chat
+        await message.channel.send(f"**{message.author.name} (User):** {content}")
+        response = ask_ollama(history, OLLAMA_URL)
+        add_message(channel_id, "assistant", bot.user.name, response)
+        await message.channel.send(response)
+        return
     channel_id = message.channel.id
     add_message(channel_id, "user", message.author.name, message.content)
     await bot.process_commands(message)
