@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from ollama_client import ask_ollama
-from db import add_message, get_history
+from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id
 import os
 
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -66,6 +66,26 @@ async def history(interaction: discord.Interaction):
         output = output[-1900:]
         output = "...\n" + output
     await interaction.response.send_message(output)
+
+@bot.tree.command(name="import_history", description="Import all previous messages from this channel into the database (safe against duplicates)")
+async def import_history(interaction: discord.Interaction):
+    channel = interaction.channel
+    channel_id = channel.id
+    await interaction.response.defer(thinking=True, ephemeral=True)
+    last_imported_id = get_last_imported_message_id(channel_id)
+    imported = 0
+    last_seen_id = last_imported_id
+    async for msg in channel.history(limit=None, oldest_first=True, after=None):
+        if last_imported_id and msg.id <= last_imported_id:
+            continue
+        if msg.author.bot:
+            continue
+        add_message(channel_id, "user", msg.author.name, msg.content)
+        imported += 1
+        last_seen_id = msg.id
+    if imported > 0 and last_seen_id:
+        set_last_imported_message_id(channel_id, last_seen_id)
+    await interaction.followup.send(f"Imported {imported} new messages from this channel.")
 
 if __name__ == "__main__":
     bot.run(TOKEN)
