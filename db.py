@@ -3,7 +3,7 @@ from contextlib import closing
 from typing import List, Dict, Any
 import os
 
-DB_PATH = os.getenv("DB_PATH", "history.db")
+DB_PATH = os.getenv("DB_PATH", "data/history.db")
 
 # Ensure the messages table exists
 with sqlite3.connect(DB_PATH) as conn:
