@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from ollama_client import ask_ollama
-from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id, search_history
+from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id, search_history, get_messages_after_user_last
 import os
 
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -120,6 +120,30 @@ async def search(interaction: discord.Interaction, query: str):
         output = output[-1900:]
         output = "...\n" + output
     await interaction.response.send_message(output)
+
+@bot.tree.command(name="tldr", description="Summarize everything since you last sent a message in this channel (cleaned output)")
+async def tldr(interaction: discord.Interaction):
+    channel_id = interaction.channel_id
+    username = interaction.user.name
+    messages = get_messages_after_user_last(channel_id, username)
+    if not messages:
+        await interaction.response.send_message("No new messages since your last message.")
+        return
+    summary_prompt = [{
+        "role": "system",
+        "content": "Summarize the following conversation for me. Be concise and to the point. 500 words or less please."
+    }] + messages
+    await interaction.response.defer()
+    summary = ask_ollama(summary_prompt, OLLAMA_URL)
+    import re
+    # Remove all <think>...</think>, <think>, and </think> tags anywhere in the text
+    summary = re.sub(r'<think>.*?</think>', '', summary, flags=re.DOTALL)
+    summary = re.sub(r'<think>|</think>', '', summary)
+    summary = summary.strip()
+    # Truncate to Discord's message limit (2000 chars, use 1900 for safety)
+    if len(summary) > 1900:
+        summary = summary[:1900] + "..."
+    await interaction.followup.send(f"**TL;DR:**\n{summary}")
 
 if __name__ == "__main__":
     bot.run(TOKEN)

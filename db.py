@@ -76,3 +76,32 @@ def set_last_imported_message_id(channel_id: int, message_id: int):
             (channel_id, message_id)
         )
         conn.commit()
+
+def get_messages_after_user_last(channel_id: int, username: str) -> List[Dict[str, Any]]:
+    with sqlite3.connect(DB_PATH) as conn:
+        # Find the last message id sent by the user in this channel
+        cursor = conn.execute(
+            """
+            SELECT id FROM messages
+            WHERE channel_id = ? AND username = ?
+            ORDER BY id DESC LIMIT 1
+            """,
+            (channel_id, username)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return []
+        last_user_id = row[0]
+        # Get all messages after that id
+        cursor = conn.execute(
+            """
+            SELECT role, username, content FROM messages
+            WHERE channel_id = ? AND id > ?
+            ORDER BY id ASC
+            """,
+            (channel_id, last_user_id)
+        )
+        rows = cursor.fetchall()
+        return [
+            {"role": r[0], "username": r[1], "content": r[2]} for r in rows
+        ]
