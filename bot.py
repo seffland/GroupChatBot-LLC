@@ -30,7 +30,7 @@ async def on_message(message):
         return
     channel_id = message.channel.id
     history = conversation_history.get(channel_id, [])
-    history.append({"role": "user", "content": message.content})
+    history.append({"role": "user", "username": message.author.name, "content": message.content})
     conversation_history[channel_id] = history[-HISTORY_LIMIT:]
     await bot.process_commands(message)
 
@@ -42,13 +42,34 @@ async def chat(interaction: discord.Interaction, message: str):
     # Get or create history for this channel
     history = conversation_history.get(channel_id, [])
     # Append the /chat message as a user message
-    history.append({"role": "user", "content": message})
+    history.append({"role": "user", "username": interaction.user.name, "content": message})
     history = history[-HISTORY_LIMIT:]
     response = ask_ollama(history, OLLAMA_URL)
     # Append bot response
-    history.append({"role": "assistant", "content": response})
+    history.append({"role": "assistant", "username": bot.user.name, "content": response})
     conversation_history[channel_id] = history[-HISTORY_LIMIT:]
     await interaction.followup.send(response)
+
+@bot.tree.command(name="history", description="Show the conversation history for this channel")
+async def history(interaction: discord.Interaction):
+    channel_id = interaction.channel_id
+    history = conversation_history.get(channel_id, [])
+    if not history:
+        await interaction.response.send_message("No conversation history for this channel.")
+        return
+    # Format history as a readable string
+    formatted = []
+    for msg in history:
+        role = msg.get("role", "user")
+        username = msg.get("username", "user")
+        content = msg.get("content", "")
+        formatted.append(f"**{username} ({role.capitalize()}):** {content}")
+    output = "\n".join(formatted)
+    # Discord message limit is 2000 chars
+    if len(output) > 1900:
+        output = output[-1900:]
+        output = "...\n" + output
+    await interaction.response.send_message(output)
 
 if __name__ == "__main__":
     bot.run(TOKEN)
