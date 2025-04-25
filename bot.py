@@ -6,7 +6,7 @@ from db import add_message, get_history, get_last_imported_message_id, set_last_
 import os
 
 TOKEN = os.getenv('DISCORD_TOKEN')
-OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://host.docker.internal:11435')
+OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434')
 HISTORY_LIMIT = 1000  # Number of messages to keep per channel
 
 intents = discord.Intents.default()
@@ -43,8 +43,8 @@ async def on_message(message):
     add_message(channel_id, "user", message.author.name, message.content)
     await bot.process_commands(message)
 
-@bot.tree.command(name="chat", description="Chat with the CCP")
-@app_commands.describe(message="Your message to the CCP")
+@bot.tree.command(name="chat", description="Chat with the llama")
+@app_commands.describe(message="Your message to the llama")
 async def chat(interaction: discord.Interaction, message: str):
     await interaction.response.defer()
     channel_id = interaction.channel_id

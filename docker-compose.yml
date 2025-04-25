@@ -4,7 +4,7 @@ services:
     env_file:
       - .env
     environment:
-      - OLLAMA_URL=http://host.docker.internal:11435
+      - OLLAMA_URL=http://plexllm-ollama-1:11434
     networks:
       - plexllm_app-network
     volumes:
