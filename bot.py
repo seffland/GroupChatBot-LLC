@@ -44,6 +44,8 @@ async def chat(interaction: discord.Interaction, message: str):
     # Append the /chat message as a user message
     history.append({"role": "user", "username": interaction.user.name, "content": message})
     history = history[-HISTORY_LIMIT:]
+    # Send the user's message as a followup immediately
+    await interaction.followup.send(f"**{interaction.user.name} (User):** {message}")
     response = ask_ollama(history, OLLAMA_URL)
     # Append bot response
     history.append({"role": "assistant", "username": bot.user.name, "content": response})
