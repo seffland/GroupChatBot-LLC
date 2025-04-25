@@ -109,7 +109,8 @@ def get_messages_after_user_last(channel_id: int, username: str) -> List[Dict[st
 def message_count(channel_id: int, days: int | str) -> int:
     """
     Returns the number of messages sent in the given channel in the last `days` days, or all time if days == 'all'.
-    If days == 0, returns the count for just today (UTC), using the same logic as /funniest.
+    If days == 0, returns the count for just today (EST), using the same logic as /funniest.
+    If days == 'yesterday', returns the count for just yesterday (EST).
     """
     with sqlite3.connect(DB_PATH) as conn:
         if days == 'all':
@@ -129,7 +130,6 @@ def message_count(channel_id: int, days: int | str) -> int:
                 eastern = pytz.timezone('America/New_York')
             now_est = datetime.now(eastern)
             today_start_est = datetime.combine(now_est.date(), time(hour=0, minute=0), tzinfo=eastern)
-            # Convert EST start of day to UTC for DB query
             today_start_utc = today_start_est.astimezone(timezone.utc)
             today_start_str = today_start_utc.strftime('%Y-%m-%d %H:%M:%S')
             cursor = conn.execute(
@@ -138,6 +138,31 @@ def message_count(channel_id: int, days: int | str) -> int:
                 WHERE channel_id = ? AND timestamp >= ?
                 """,
                 (channel_id, today_start_str)
+            )
+            row = cursor.fetchone()
+            return row[0] if row else 0
+        elif days == 'yesterday':
+            from datetime import datetime, time, timedelta, timezone
+            try:
+                from zoneinfo import ZoneInfo
+                eastern = ZoneInfo('America/New_York')
+            except ImportError:
+                import pytz
+                eastern = pytz.timezone('America/New_York')
+            now_est = datetime.now(eastern)
+            yesterday_date = now_est.date() - timedelta(days=1)
+            y_start_est = datetime.combine(yesterday_date, time(hour=0, minute=0), tzinfo=eastern)
+            y_end_est = datetime.combine(now_est.date(), time(hour=0, minute=0), tzinfo=eastern)
+            y_start_utc = y_start_est.astimezone(timezone.utc)
+            y_end_utc = y_end_est.astimezone(timezone.utc)
+            y_start_str = y_start_utc.strftime('%Y-%m-%d %H:%M:%S')
+            y_end_str = y_end_utc.strftime('%Y-%m-%d %H:%M:%S')
+            cursor = conn.execute(
+                """
+                SELECT COUNT(*) FROM messages
+                WHERE channel_id = ? AND timestamp >= ? AND timestamp < ?
+                """,
+                (channel_id, y_start_str, y_end_str)
             )
             row = cursor.fetchone()
             return row[0] if row else 0

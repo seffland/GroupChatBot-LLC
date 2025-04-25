@@ -146,7 +146,7 @@ async def tldr(interaction: discord.Interaction):
     await interaction.followup.send(f"**TL;DR:**\n{summary}")
 
 @bot.tree.command(name="message_count", description="Show how many messages have been sent in this channel in the last N days")
-@app_commands.describe(days="Number of days to look back, today, or 'all' for all time")
+@app_commands.describe(days="Number of days to look back, today, yesterday, or 'all' for all time")
 async def message_count_cmd(interaction: discord.Interaction, days: str):
     channel_id = interaction.channel_id
     if days.lower() == 'all':
@@ -155,24 +155,27 @@ async def message_count_cmd(interaction: discord.Interaction, days: str):
     elif days.lower() == 'today':
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
-        # Pass 0 to mean today only, assuming message_count interprets 0 as today
         count = message_count(channel_id, 0)
         await interaction.response.send_message(f"{count} messages have been sent today in this channel.")
+    elif days.lower() == 'yesterday':
+        count = message_count(channel_id, 'yesterday')
+        await interaction.response.send_message(f"{count} messages have been sent yesterday in this channel.")
     else:
         try:
             days_int = int(days)
             count = message_count(channel_id, days_int)
             await interaction.response.send_message(f"{count} messages have been sent in the last {days_int} day(s) in this channel.")
         except ValueError:
-            await interaction.response.send_message("Please provide a number of days (e.g. 7), 'today', or 'all'.")
+            await interaction.response.send_message("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
 
 @bot.tree.command(name="funniest", description="Declare the funniest user based on :joy: reactions in this channel")
-@app_commands.describe(days="Number of days to look back, today, or 'all' for all time")
+@app_commands.describe(days="Number of days to look back, today, yesterday, or 'all' for all time")
 async def funniest(interaction: discord.Interaction, days: str):
     channel = interaction.channel
     await interaction.response.defer(thinking=True)
     if days.lower() == 'all':
         after = None
+        before = None
     elif days.lower() == 'today':
         from datetime import datetime, time, timezone
         try:
@@ -184,16 +187,32 @@ async def funniest(interaction: discord.Interaction, days: str):
         now_est = datetime.now(eastern)
         today_start_est = datetime.combine(now_est.date(), time(hour=0, minute=0), tzinfo=eastern)
         after = today_start_est.astimezone(timezone.utc)
+        before = None
+    elif days.lower() == 'yesterday':
+        from datetime import datetime, time, timedelta, timezone
+        try:
+            from zoneinfo import ZoneInfo
+            eastern = ZoneInfo('America/New_York')
+        except ImportError:
+            import pytz
+            eastern = pytz.timezone('America/New_York')
+        now_est = datetime.now(eastern)
+        yesterday_date = now_est.date() - timedelta(days=1)
+        y_start_est = datetime.combine(yesterday_date, time(hour=0, minute=0), tzinfo=eastern)
+        y_end_est = datetime.combine(now_est.date(), time(hour=0, minute=0), tzinfo=eastern)
+        after = y_start_est.astimezone(timezone.utc)
+        before = y_end_est.astimezone(timezone.utc)
     else:
         try:
             days_int = int(days)
             from datetime import datetime, timedelta, timezone
             after = datetime.now(timezone.utc) - timedelta(days=days_int)
+            before = None
         except ValueError:
-            await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', or 'all'.")
+            await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
             return
     user_joy_received = {}
-    async for msg in channel.history(limit=None, oldest_first=True, after=after):
+    async for msg in channel.history(limit=None, oldest_first=True, after=after, before=before):
         joy_count = 0
         for reaction in msg.reactions:
             is_joy = False
