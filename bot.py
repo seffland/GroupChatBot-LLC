@@ -194,8 +194,6 @@ async def funniest(interaction: discord.Interaction, days: str):
             return
     user_joy_received = {}
     async for msg in channel.history(limit=None, oldest_first=True, after=after):
-        if msg.author.bot:
-            continue
         joy_count = 0
         for reaction in msg.reactions:
             is_joy = False
