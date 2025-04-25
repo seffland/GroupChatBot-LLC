@@ -174,9 +174,16 @@ async def funniest(interaction: discord.Interaction, days: str):
     if days.lower() == 'all':
         after = None
     elif days.lower() == 'today':
-        from datetime import datetime, timezone, time
-        now = datetime.now(timezone.utc)
-        after = datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
+        from datetime import datetime, time, timezone
+        try:
+            from zoneinfo import ZoneInfo
+            eastern = ZoneInfo('America/New_York')
+        except ImportError:
+            import pytz
+            eastern = pytz.timezone('America/New_York')
+        now_est = datetime.now(eastern)
+        today_start_est = datetime.combine(now_est.date(), time(hour=0, minute=0), tzinfo=eastern)
+        after = today_start_est.astimezone(timezone.utc)
     else:
         try:
             days_int = int(days)
@@ -185,12 +192,12 @@ async def funniest(interaction: discord.Interaction, days: str):
         except ValueError:
             await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', or 'all'.")
             return
-    user_joy_counts = {}
+    user_joy_received = {}
     async for msg in channel.history(limit=None, oldest_first=True, after=after):
         if msg.author.bot:
             continue
+        joy_count = 0
         for reaction in msg.reactions:
-            # Check for joy emoji by unicode, name, or string
             is_joy = False
             if str(reaction.emoji) == '😂':
                 is_joy = True
@@ -199,15 +206,17 @@ async def funniest(interaction: discord.Interaction, days: str):
             elif str(reaction.emoji) == ':joy:':
                 is_joy = True
             if is_joy:
-                user_joy_counts[msg.author.name] = user_joy_counts.get(msg.author.name, 0) + reaction.count
-    if not user_joy_counts:
+                joy_count += reaction.count
+        if joy_count > 0:
+            user_joy_received[msg.author.name] = user_joy_received.get(msg.author.name, 0) + joy_count
+    if not user_joy_received:
         await interaction.followup.send("No :joy: reactions found in this channel for the given period.")
         return
-    funniest_user = max(user_joy_counts, key=user_joy_counts.get)
-    funniest_count = user_joy_counts[funniest_user]
-    leaderboard = sorted(user_joy_counts.items(), key=lambda x: x[1], reverse=True)
+    funniest_user = max(user_joy_received, key=user_joy_received.get)
+    funniest_count = user_joy_received[funniest_user]
+    leaderboard = sorted(user_joy_received.items(), key=lambda x: x[1], reverse=True)
     leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :joy:" for i, (user, count) in enumerate(leaderboard)])
-    await interaction.followup.send(f"The funniest user is **{funniest_user}** with {funniest_count} :joy: reactions!\n\nLeaderboard:\n{leaderboard_str}")
+    await interaction.followup.send(f"The funniest user is **{funniest_user}** with {funniest_count} :joy: reactions received!\n\nLeaderboard:\n{leaderboard_str}")
 
 if __name__ == "__main__":
     bot.run(TOKEN)
