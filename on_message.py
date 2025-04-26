@@ -17,18 +17,18 @@ def setup_on_message(bot, DEVELOPMENT_SERVER_ID, HISTORY_LIMIT):
                 try:
                     finnhub_api_key = os.getenv('FINNHUB_API_KEY')
                     if not finnhub_api_key:
-                        await message.channel.send("Finnhub API key not set.")
+                        await message.reply("Finnhub API key not set.")
                         return
                     url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={finnhub_api_key}"
                     resp = requests.get(url, timeout=10)
                     data = resp.json()
                     if 'c' in data and data['c']:
                         price = data['c']
-                        await message.channel.send(f"${ticker}: ${price}")
+                        await message.reply(f"${ticker}: ${price}")
                     else:
-                        await message.channel.send(f"Could not fetch price for ${ticker}.")
+                        await message.reply(f"Could not fetch price for ${ticker}.")
                 except Exception as e:
-                    await message.channel.send(f"Error fetching price for ${ticker}: {e}")
+                    await message.reply(f"Error fetching price for ${ticker}: {e}")
         # If the bot is mentioned, treat as a chat request
         if bot.user in message.mentions:
             channel_id = message.channel.id
