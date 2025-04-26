@@ -176,3 +176,85 @@ def message_count(channel_id: int, days: int | str) -> int:
             )
             row = cursor.fetchone()
             return row[0] if row else 0
+
+def get_messages_for_timeframe(channel_id: int, timeframe: str) -> List[Dict[str, Any]]:
+    """
+    Returns all messages in the given channel for the specified timeframe.
+    timeframe: 'today', 'yesterday', 'this_month', or 'all'
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        if timeframe == 'all':
+            cursor = conn.execute(
+                "SELECT role, username, content FROM messages WHERE channel_id = ? ORDER BY id ASC",
+                (channel_id,)
+            )
+        elif timeframe == 'today':
+            from datetime import datetime, time, timezone
+            try:
+                from zoneinfo import ZoneInfo
+                eastern = ZoneInfo('America/New_York')
+            except ImportError:
+                import pytz
+                eastern = pytz.timezone('America/New_York')
+            now_est = datetime.now(eastern)
+            today_start_est = datetime.combine(now_est.date(), time(hour=0, minute=0), tzinfo=eastern)
+            today_start_utc = today_start_est.astimezone(timezone.utc)
+            today_start_str = today_start_utc.strftime('%Y-%m-%d %H:%M:%S')
+            cursor = conn.execute(
+                """
+                SELECT role, username, content FROM messages
+                WHERE channel_id = ? AND timestamp >= ?
+                ORDER BY id ASC
+                """,
+                (channel_id, today_start_str)
+            )
+        elif timeframe == 'yesterday':
+            from datetime import datetime, time, timedelta, timezone
+            try:
+                from zoneinfo import ZoneInfo
+                eastern = ZoneInfo('America/New_York')
+            except ImportError:
+                import pytz
+                eastern = pytz.timezone('America/New_York')
+            now_est = datetime.now(eastern)
+            yesterday_date = now_est.date() - timedelta(days=1)
+            y_start_est = datetime.combine(yesterday_date, time(hour=0, minute=0), tzinfo=eastern)
+            y_end_est = datetime.combine(now_est.date(), time(hour=0, minute=0), tzinfo=eastern)
+            y_start_utc = y_start_est.astimezone(timezone.utc)
+            y_end_utc = y_end_est.astimezone(timezone.utc)
+            y_start_str = y_start_utc.strftime('%Y-%m-%d %H:%M:%S')
+            y_end_str = y_end_utc.strftime('%Y-%m-%d %H:%M:%S')
+            cursor = conn.execute(
+                """
+                SELECT role, username, content FROM messages
+                WHERE channel_id = ? AND timestamp >= ? AND timestamp < ?
+                ORDER BY id ASC
+                """,
+                (channel_id, y_start_str, y_end_str)
+            )
+        elif timeframe == 'this_month':
+            from datetime import datetime, timezone
+            try:
+                from zoneinfo import ZoneInfo
+                eastern = ZoneInfo('America/New_York')
+            except ImportError:
+                import pytz
+                eastern = pytz.timezone('America/New_York')
+            now_est = datetime.now(eastern)
+            month_start_est = now_est.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            month_start_utc = month_start_est.astimezone(timezone.utc)
+            month_start_str = month_start_utc.strftime('%Y-%m-%d %H:%M:%S')
+            cursor = conn.execute(
+                """
+                SELECT role, username, content FROM messages
+                WHERE channel_id = ? AND timestamp >= ?
+                ORDER BY id ASC
+                """,
+                (channel_id, month_start_str)
+            )
+        else:
+            return []
+        rows = cursor.fetchall()
+        return [
+            {"role": row[0], "username": row[1], "content": row[2]} for row in rows
+        ]

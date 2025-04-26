@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from ollama_client import ask_ollama
-from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id, search_history, get_messages_after_user_last, message_count
+from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id, search_history, get_messages_after_user_last, message_count, get_messages_for_timeframe
 import os
 
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -114,7 +114,7 @@ async def search(interaction: discord.Interaction, query: str):
         output = "...\n" + output
     await interaction.response.send_message(output)
 
-@bot.tree.command(name="tldr", description="Summarize everything since you last sent a message in this channel (cleaned output)")
+@bot.tree.command(name="tldr", description="Summarize everything since you last sent a message in this channel")
 async def tldr(interaction: discord.Interaction):
     channel_id = interaction.channel_id
     username = interaction.user.name
@@ -124,7 +124,7 @@ async def tldr(interaction: discord.Interaction):
         return
     summary_prompt = [{
         "role": "system",
-        "content": "Summarize the following conversation for me. Be concise and to the point. 500 words or less please."
+        "content": "Summarize the following conversation for me. Be concise and to the point. 50 words or less please."
     }] + messages
     await interaction.response.defer()
     summary = ask_ollama(summary_prompt, OLLAMA_URL)
@@ -300,6 +300,32 @@ async def stingy(interaction: discord.Interaction, days: str):
     leaderboard = sorted(user_joy_given.items(), key=lambda x: x[1])
     leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :joy:" for i, (user, count) in enumerate(leaderboard)])
     await interaction.followup.send(f"The stingiest user is **{stingiest_user}** with only {stingiest_count} :joy: reactions given!\n\nLeaderboard (least to most):\n{leaderboard_str}")
+
+@bot.tree.command(name="summarize", description="Summarize all messages in this channel for a given timeframe (today, yesterday, this_month, all)")
+@app_commands.describe(timeframe="Timeframe to summarize: today, yesterday, this_month, or all")
+async def summarize(interaction: discord.Interaction, timeframe: str):
+    channel_id = interaction.channel_id
+    valid_timeframes = {"today", "yesterday", "this_month", "all"}
+    if timeframe not in valid_timeframes:
+        await interaction.response.send_message("Please provide a valid timeframe: today, yesterday, this_month, or all.")
+        return
+    messages = get_messages_for_timeframe(channel_id, timeframe)
+    if not messages:
+        await interaction.response.send_message(f"No messages found for timeframe '{timeframe}'.")
+        return
+    summary_prompt = [{
+        "role": "system",
+        "content": f"Summarize the following conversation for the timeframe '{timeframe}'. Be concise and to the point. 500 words or less."
+    }] + messages
+    await interaction.response.defer()
+    summary = ask_ollama(summary_prompt, OLLAMA_URL)
+    import re
+    summary = re.sub(r'<think>.*?</think>', '', summary, flags=re.DOTALL)
+    summary = re.sub(r'<think>|</think>', '', summary)
+    summary = summary.strip()
+    if len(summary) > 1900:
+        summary = summary[:1900] + "..."
+    await interaction.followup.send(f"**Summary for {timeframe}:**\n{summary}")
 
 if __name__ == "__main__":
     bot.run(TOKEN)
