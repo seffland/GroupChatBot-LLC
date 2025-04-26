@@ -12,10 +12,14 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434')
 HISTORY_LIMIT = 1000  # Number of messages to keep per channel
 DEVELOPMENT_SERVER_ID = os.getenv('DEVELOPMENT_SERVER_ID')
+PRODUCTION_SERVER_ID = os.getenv('PRODUCTION_SERVER_ID')
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="/", intents=intents)
+
+add_f1_command(bot)
+#add_dev_commands(bot)
 
 @bot.event
 async def on_ready():
@@ -28,8 +32,12 @@ async def on_ready():
         else:
             synced = await bot.tree.sync()
             print(f'Synced {len(synced)} command(s) globally')
+        # Print all registered commands for debug
+        print("Registered commands:")
+        for cmd in bot.tree.get_commands():
+            print(f"- /{cmd.name}")
     except Exception as e:
-        print(e)
+        print("Error during command sync:", e)
 
 @bot.event
 async def on_message(message):
@@ -365,6 +373,4 @@ async def eli5(interaction: discord.Interaction, message: discord.Message):
     await interaction.followup.send(f"**Original message:**\n> {message.content}\n\n**ELI5:**\n{explanation}", ephemeral=True)
 
 if __name__ == "__main__":
-    #add_dev_commands(bot)
-    add_f1_command(bot)
     bot.run(TOKEN)

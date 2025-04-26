@@ -7,7 +7,6 @@ PRODUCTION_SERVER_ID = os.getenv('PRODUCTION_SERVER_ID')
 DEVELOPMENT_SERVER_ID = os.getenv('DEVELOPMENT_SERVER_ID')
 
 async def get_next_f1_race():
-    # ...existing code from dev.py...
     import datetime
     import pytz
     url = "https://api.jolpi.ca/ergast/f1/current.json"
@@ -75,8 +74,10 @@ async def get_next_f1_race():
         return f"Could not fetch F1 event info: {e}"
 
 def add_f1_command(bot):
-        @bot.tree.command(name="f1", description="Show the location and time of the next F1 race")
-        async def f1(interaction: discord.Interaction):
-            await interaction.response.defer()
-            info = await get_next_f1_race()
-            await interaction.followup.send(info)
+    print("Registering /f1 command...")
+    @bot.tree.command(name="f1", description="Show the location and time of the next F1 race")
+    async def f1(interaction: discord.Interaction):
+        await interaction.response.defer()
+        info = await get_next_f1_race()
+        await interaction.followup.send(info)
+    print("/f1 command registered.")
