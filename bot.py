@@ -5,7 +5,8 @@ from ollama_client import ask_ollama
 from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id, search_history, get_messages_after_user_last, message_count, get_messages_for_timeframe
 import os
 import requests
-from dev import add_dev_commands
+#from dev import add_dev_commands
+from f1 import add_f1_command
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434')
@@ -62,10 +63,11 @@ async def chat(interaction: discord.Interaction, message: str):
 
 @bot.tree.command(name="history", description="Show the conversation history for this channel")
 async def history(interaction: discord.Interaction):
+    await interaction.response.defer()
     channel_id = interaction.channel_id
     history = get_history(channel_id, HISTORY_LIMIT)
     if not history:
-        await interaction.response.send_message("No conversation history for this channel.")
+        await interaction.followup.send("No conversation history for this channel.")
         return
     # Format history as a readable string
     formatted = []
@@ -79,7 +81,7 @@ async def history(interaction: discord.Interaction):
     if len(output) > 1900:
         output = output[-1900:]
         output = "...\n" + output
-    await interaction.response.send_message(output)
+    await interaction.followup.send(output)
 
 @bot.tree.command(name="import_history", description="Import all previous messages from this channel into the database (safe against duplicates)")
 async def import_history(interaction: discord.Interaction):
@@ -363,5 +365,6 @@ async def eli5(interaction: discord.Interaction, message: discord.Message):
     await interaction.followup.send(f"**Original message:**\n> {message.content}\n\n**ELI5:**\n{explanation}", ephemeral=True)
 
 if __name__ == "__main__":
-    add_dev_commands(bot)
+    #add_dev_commands(bot)
+    add_f1_command(bot)
     bot.run(TOKEN)
