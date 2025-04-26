@@ -222,11 +222,15 @@ async def funniest(interaction: discord.Interaction, days: str):
     if not user_joy_received:
         await interaction.followup.send("No :joy: reactions found in this channel for the given period.")
         return
-    funniest_user = max(user_joy_received, key=user_joy_received.get)
-    funniest_count = user_joy_received[funniest_user]
+    max_joy = max(user_joy_received.values())
+    funniest_users = [user for user, count in user_joy_received.items() if count == max_joy]
     leaderboard = sorted(user_joy_received.items(), key=lambda x: x[1], reverse=True)
     leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :joy:" for i, (user, count) in enumerate(leaderboard)])
-    await interaction.followup.send(f"The funniest user is **{funniest_user}** with {funniest_count} :joy: reactions received!\n\nLeaderboard:\n{leaderboard_str}")
+    if len(funniest_users) == 1:
+        await interaction.followup.send(f"The funniest user is **{funniest_users[0]}** with {max_joy} :joy: reactions received!\n\nLeaderboard:\n{leaderboard_str}")
+    else:
+        users_str = ', '.join(f"**{user}**" for user in funniest_users)
+        await interaction.followup.send(f"It's a tie! The funniest users are {users_str} with {max_joy} :joy: reactions received each!\n\nLeaderboard:\n{leaderboard_str}")
 
 @bot.tree.command(name="stingy", description="Declare the stingiest user based on who gives out the least :joy: reactions in this channel")
 @app_commands.describe(days="Number of days to look back, today, yesterday, or 'all' for all time")
@@ -292,14 +296,17 @@ async def stingy(interaction: discord.Interaction, days: str):
                         continue
                     user_joy_given[user.name] = user_joy_given.get(user.name, 0) + 1
     if not user_joy_given:
-        await interaction.followup.send("No :joy: reactions given in this channel for the given period.")
+        await interaction.followup.send("Everyone is stingy! No :joy: reactions were given in this channel for the given period.")
         return
-    # Only consider users who have given at least one :joy:
-    stingiest_user = min(user_joy_given, key=user_joy_given.get)
-    stingiest_count = user_joy_given[stingiest_user]
+    min_joy = min(user_joy_given.values())
+    stingiest_users = [user for user, count in user_joy_given.items() if count == min_joy]
     leaderboard = sorted(user_joy_given.items(), key=lambda x: x[1])
     leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :joy:" for i, (user, count) in enumerate(leaderboard)])
-    await interaction.followup.send(f"The stingiest user is **{stingiest_user}** with only {stingiest_count} :joy: reactions given!\n\nLeaderboard (least to most):\n{leaderboard_str}")
+    if len(stingiest_users) == 1:
+        await interaction.followup.send(f"The stingiest user is **{stingiest_users[0]}** with only {min_joy} :joy: reactions given!\n\nLeaderboard (least to most):\n{leaderboard_str}")
+    else:
+        users_str = ', '.join(f"**{user}**" for user in stingiest_users)
+        await interaction.followup.send(f"It's a tie! The stingiest users are {users_str} with only {min_joy} :joy: reactions given each!\n\nLeaderboard (least to most):\n{leaderboard_str}")
 
 @bot.tree.command(name="summarize", description="Summarize all messages in this channel for a given timeframe (today, yesterday, this_month, all)")
 @app_commands.describe(timeframe="Timeframe to summarize: today, yesterday, this_month, or all")
