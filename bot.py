@@ -5,9 +5,10 @@ from ollama_client import ask_ollama
 from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id, search_history, get_messages_after_user_last, message_count, get_messages_for_timeframe
 import os
 import requests
-from dev import add_dev_commands
+#from dev import add_dev_commands
 from f1 import add_f1_command
 from finance import add_finance_commands
+from nascar import add_nascar_commands
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434')
@@ -20,8 +21,9 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 add_f1_command(bot)
-add_dev_commands(bot)
+#add_dev_commands(bot)
 add_finance_commands(bot)
+add_nascar_commands(bot)
 
 @bot.event
 async def on_ready():
@@ -48,6 +50,27 @@ async def on_ready():
 async def on_message(message):
     if message.author.bot:
         return
+    # DEV server only: Listen for $TICKER in messages and reply with stock price
+    if message.guild and str(message.guild.id) == str(DEVELOPMENT_SERVER_ID):
+        import re
+        match = re.search(r'\$(\w{1,5})', message.content)
+        if match:
+            ticker = match.group(1).upper()
+            try:
+                finnhub_api_key = os.getenv('FINNHUB_API_KEY')
+                if not finnhub_api_key:
+                    await message.channel.send("Finnhub API key not set.")
+                    return
+                url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={finnhub_api_key}"
+                resp = requests.get(url, timeout=10)
+                data = resp.json()
+                if 'c' in data and data['c']:
+                    price = data['c']
+                    await message.channel.send(f"${ticker}: ${price}")
+                else:
+                    await message.channel.send(f"Could not fetch price for ${ticker}.")
+            except Exception as e:
+                await message.channel.send(f"Error fetching price for ${ticker}: {e}")
     # If the bot is mentioned, treat as a chat request
     if bot.user in message.mentions:
         channel_id = message.channel.id

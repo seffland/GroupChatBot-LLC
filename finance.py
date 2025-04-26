@@ -15,7 +15,7 @@ def add_finance_commands(bot):
             response = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", timeout=10)
             data = response.json()
             price = data["bitcoin"]["usd"]
-            price_str = f"{price:,.2f}"
+            price_str = f"{price:,}"
             await interaction.followup.send(f"Current BTC price: ${price_str} USD")
         except Exception as e:
             await interaction.followup.send(f"Error fetching BTC price: {e}")
