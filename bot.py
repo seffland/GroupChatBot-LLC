@@ -33,11 +33,9 @@ async def on_message(message):
         content = message.content.replace(f'<@{bot.user.id}>', '').strip()
         add_message(channel_id, "user", message.author.name, content)
         history = get_history(channel_id, HISTORY_LIMIT)
-        # Send the user's message as a chat
-        await message.channel.send(f"**{message.author.name} (User):** {content}")
         response = ask_ollama(history, OLLAMA_URL)
         add_message(channel_id, "assistant", bot.user.name, response)
-        await message.channel.send(response)
+        await message.reply(response)
         return
     channel_id = message.channel.id
     add_message(channel_id, "user", message.author.name, message.content)
@@ -48,14 +46,9 @@ async def on_message(message):
 async def chat(interaction: discord.Interaction, message: str):
     await interaction.response.defer()
     channel_id = interaction.channel_id
-    # Append the /chat message as a user message
     add_message(channel_id, "user", interaction.user.name, message)
-    # Get history for this channel
     history = get_history(channel_id, HISTORY_LIMIT)
-    # Send the user's message as a followup immediately
-    await interaction.followup.send(f"**{interaction.user.name} (User):** {message}")
     response = ask_ollama(history, OLLAMA_URL)
-    # Append bot response
     add_message(channel_id, "assistant", bot.user.name, response)
     await interaction.followup.send(response)
 
