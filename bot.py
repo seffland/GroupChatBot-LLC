@@ -334,5 +334,25 @@ async def summarize(interaction: discord.Interaction, timeframe: str):
         summary = summary[:1900] + "..."
     await interaction.followup.send(f"**Summary for {timeframe}:**\n{summary}")
 
+@bot.tree.context_menu(name="ELI5 (Explain Like I'm 5)")
+async def eli5(interaction: discord.Interaction, message: discord.Message):
+    """
+    Explains the selected message like the user is 5 years old using the LLM.
+    """
+    await interaction.response.defer()
+    prompt = [
+        {"role": "system", "content": "Explain the following message as if you are talking to a 5-year-old. Use simple words and keep it short."},
+        {"role": "user", "content": message.content}
+    ]
+    explanation = ask_ollama(prompt, OLLAMA_URL)
+    import re
+    explanation = re.sub(r'<think>.*?</think>', '', explanation, flags=re.DOTALL)
+    explanation = re.sub(r'<think>|</think>', '', explanation)
+    explanation = explanation.strip()
+    if len(explanation) > 1900:
+        explanation = explanation[:1900] + "..."
+    # Show the original message and the ELI5 explanation
+    await interaction.followup.send(f"**Original message:**\n> {message.content}\n\n**ELI5:**\n{explanation}", ephemeral=True)
+
 if __name__ == "__main__":
     bot.run(TOKEN)
