@@ -7,33 +7,38 @@ DEVELOPMENT_SERVER_ID = os.getenv('DEVELOPMENT_SERVER_ID')
 
 async def get_next_f1_race():
     """
-    Fetches the next F1 race info from RacingCalendar.net API.
+    Fetches the next F1 race info from the Ergast Developer API.
     Returns a string with the race name, location, and time.
     """
     import datetime
-    url = "https://api.racingcalendar.net/events?series=f1&season=2025"
+    url = "https://api.jolpi.ca/ergast/f1/current.json"
     try:
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
-        events = resp.json()
+        data = resp.json()
+        races = data['MRData']['RaceTable']['Races']
         now = datetime.datetime.utcnow().date()
         next_race = None
-        for event in events:
-            event_date = datetime.datetime.strptime(event['startDate'], "%Y-%m-%d").date()
-            if event_date >= now:
-                next_race = event
+        for race in races:
+            race_date = datetime.datetime.strptime(race['date'], "%Y-%m-%d").date()
+            if race_date >= now:
+                next_race = race
                 break
         if not next_race:
             return "No upcoming F1 races found for the current season."
-        name = next_race.get('name', 'Unknown')
-        location = next_race.get('venue', {}).get('name', 'Unknown location')
-        city = next_race.get('venue', {}).get('city', '')
-        country = next_race.get('venue', {}).get('country', '')
-        date = next_race.get('startDate', 'Unknown date')
-        time = next_race.get('startTime', None)
+        name = next_race.get('raceName', 'Unknown')
+        circuit = next_race.get('Circuit', {})
+        location = circuit.get('circuitName', 'Unknown location')
+        loc_info = circuit.get('Location', {})
+        city = loc_info.get('locality', '')
+        country = loc_info.get('country', '')
+        date = next_race.get('date', 'Unknown date')
+        time = next_race.get('time', None)
         loc_str = f"{location} ({city}, {country})" if city or country else location
         if time:
-            date_time_str = f"{date} at {time} UTC"
+            # Ergast time is in UTC and formatted as HH:MM:SSZ
+            time_str = time.replace('Z', '')[:5]
+            date_time_str = f"{date} at {time_str} UTC"
         else:
             date_time_str = date
         return f"The next F1 race is **{name}** at **{loc_str}** on **{date_time_str}**."
