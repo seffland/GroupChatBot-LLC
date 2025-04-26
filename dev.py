@@ -11,6 +11,7 @@ async def get_next_f1_race():
     Returns a string with the race name, location, and time.
     """
     import datetime
+    import pytz
     url = "https://api.jolpi.ca/ergast/f1/current.json"
     try:
         resp = requests.get(url, timeout=10)
@@ -37,8 +38,11 @@ async def get_next_f1_race():
         loc_str = f"{location} ({city}, {country})" if city or country else location
         if time:
             # Ergast time is in UTC and formatted as HH:MM:SSZ
-            time_str = time.replace('Z', '')[:5]
-            date_time_str = f"{date} at {time_str} UTC"
+            dt_utc = datetime.datetime.strptime(date + ' ' + time.replace('Z', ''), "%Y-%m-%d %H:%M:%S")
+            dt_utc = dt_utc.replace(tzinfo=datetime.timezone.utc)
+            est = pytz.timezone('US/Eastern')
+            dt_est = dt_utc.astimezone(est)
+            date_time_str = dt_est.strftime("%Y-%m-%d at %I:%M %p EST")
         else:
             date_time_str = date
         return f"The next F1 race is **{name}** at **{loc_str}** on **{date_time_str}**."
