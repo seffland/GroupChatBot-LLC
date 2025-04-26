@@ -63,7 +63,7 @@ async def get_next_f1_race():
             event_country = event_circuit.get('Location', {}).get('country', '')
             event_loc_str = f"{event_loc} ({event_city}, {event_country})" if event_city or event_country else event_loc
             event_time_est = next_event_time.astimezone(est)
-            event_time_str = event_time_est.strftime("%Y-%m-%d at %I:%M %p EST")
+            event_time_str = event_time_est.strftime("%m/%d/%Y at %I:%M %p EST")
             msg += f"The next F1 event is **{next_event_type}** at **{event_loc_str}** on **{event_time_str}**.\n"
         if next_race:
             race_name = next_race.get('raceName', 'Unknown')
@@ -73,7 +73,7 @@ async def get_next_f1_race():
             race_country = race_circuit.get('Location', {}).get('country', '')
             race_loc_str = f"{race_loc} ({race_city}, {race_country})" if race_city or race_country else race_loc
             race_time_est = next_race_time.astimezone(est)
-            race_time_str = race_time_est.strftime("%Y-%m-%d at %I:%M %p EST")
+            race_time_str = race_time_est.strftime("%m/%d/%Y at %I:%M %p EST")
             msg += f"The next F1 race is **{race_name}** at **{race_loc_str}** on **{race_time_str}**."
         return msg.strip()
     except Exception as e:
