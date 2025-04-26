@@ -7,6 +7,7 @@ import os
 import requests
 from dev import add_dev_commands
 from f1 import add_f1_command
+from finance import add_finance_commands
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434')
@@ -20,6 +21,7 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 
 add_f1_command(bot)
 add_dev_commands(bot)
+add_finance_commands(bot)
 
 @bot.event
 async def on_ready():
