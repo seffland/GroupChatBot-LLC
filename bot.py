@@ -25,7 +25,7 @@ add_f1_command(bot)
 #add_dev_commands(bot)
 add_finance_commands(bot)
 add_nascar_commands(bot)
-setup_on_message(bot, DEVELOPMENT_SERVER_ID, HISTORY_LIMIT)
+setup_on_message(bot, HISTORY_LIMIT)
 
 @bot.event
 async def on_ready():
