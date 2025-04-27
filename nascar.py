@@ -24,22 +24,31 @@ def get_next_nascar_race(series_id):
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         races = resp.json()
+        print(f"Fetched {len(races)} races from {url}")  # DEBUG
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
         for race in races:
+            print(f"Checking race: {race}")  # DEBUG
             # Assume 'date' is in ISO format and UTC
-            race_time = datetime.fromisoformat(race['date'].replace('Z', '+00:00'))
-            if race_time > now:
-                return race
+            try:
+                race_time = datetime.fromisoformat(race['date'].replace('Z', '+00:00'))
+                print(f"Parsed race_time: {race_time}, now: {now}")  # DEBUG
+                if race_time > now:
+                    print(f"Next race found: {race}")  # DEBUG
+                    return race
+            except Exception as parse_exc:
+                print(f"Failed to parse date for race: {race}, error: {parse_exc}")  # DEBUG
+        print("No upcoming race found.")  # DEBUG
         return None
     except Exception as e:
+        print(f"Error fetching races: {e}")  # DEBUG
         return None
 
 def add_nascar_commands(bot):
     @bot.tree.command(
         name="nascar",
         description="Show the location and time of the next NASCAR race",
-        guild=discord.Object(id=PRODUCTION_SERVER_ID) if PRODUCTION_SERVER_ID else None
+        guild=discord.Object(id=DEVELOPMENT_SERVER_ID) if DEVELOPMENT_SERVER_ID else None
     )
     @app_commands.describe(series="Select the NASCAR series")
     @app_commands.choices(series=SERIES_CHOICES)

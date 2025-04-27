@@ -5,6 +5,7 @@ from ollama_client import ask_ollama
 from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id, search_history, get_messages_after_user_last, message_count, get_messages_for_timeframe
 import os
 import requests
+import asyncio
 #from dev import add_dev_commands
 from f1 import add_f1_command
 from finance import add_finance_commands
@@ -55,7 +56,10 @@ async def chat(interaction: discord.Interaction, message: str):
     channel_id = interaction.channel_id
     add_message(channel_id, "user", interaction.user.name, message)
     history = get_history(channel_id, HISTORY_LIMIT)
-    response = ask_ollama(history, OLLAMA_URL)
+    try:
+        response = await asyncio.to_thread(ask_ollama, history, OLLAMA_URL)
+    except Exception as e:
+        response = f"Error: {e}"
     add_message(channel_id, "assistant", bot.user.name, response)
     await interaction.followup.send(response)
 
