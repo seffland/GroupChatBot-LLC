@@ -172,6 +172,13 @@ async def get_last_f1_race_winner():
             given = last_race['Results'][0]['Driver']['givenName']
             winner = f"{given} {winner}"
         date = last_race.get('date')
+        # Format date as MM-DD-YYYY
+        if date:
+            try:
+                from datetime import datetime
+                date = datetime.strptime(date, "%Y-%m-%d").strftime("%m-%d-%Y")
+            except Exception:
+                pass
         return {
             'winner': winner,
             'race': race_name,

@@ -156,6 +156,13 @@ def get_last_nascar_cup_winner():
                 if parts:
                     winner = parts[0].strip()
         date = last_event.get('dateEvent')
+        # Format date as MM-DD-YYYY
+        if date:
+            try:
+                from datetime import datetime
+                date = datetime.strptime(date, "%Y-%m-%d").strftime("%m-%d-%Y")
+            except Exception:
+                pass
         location = last_event.get('strVenue', 'Unknown location')
         return {
             'winner': winner or 'Unknown',
