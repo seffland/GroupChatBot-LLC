@@ -94,18 +94,18 @@ def setup_on_message(bot, HISTORY_LIMIT):
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
                         await message.reply(response)
                         return
-                # NASCAR Cup winner summary if asked about last NASCAR/Cup race winner
-                nascar_keywords = [
-                    'who won the last nascar', 'who won the last cup race', 'last nascar winner', 'last cup winner',
-                    'who won nascar', 'who won cup race', 'nascar winner', 'cup winner'
-                ]
-                if any(kw in content.lower() for kw in nascar_keywords):
+                # More robust NASCAR Cup winner detection
+                nascar_trigger = (
+                    'nascar' in content.lower() and
+                    (('winner' in content.lower() or 'won' in content.lower()) and ('race' in content.lower() or 'cup' in content.lower()))
+                )
+                if nascar_trigger:
                     cup_result = get_last_nascar_cup_winner()
                     if cup_result:
-                        summary = f"{cup_result['winner']} won the {cup_result['race']} on {cup_result['date']}."
+                        summary = f"{cup_result['winner']} won the {cup_result['race']} at {cup_result['location']} on {cup_result['date']}."
                         llm_prompt = [
-                            {"role": "system", "content": "You are a helpful sports assistant."},
-                            {"role": "user", "content": f"Here is the result of the most recent NASCAR Cup race: {summary}\nPlease answer the user's question in a short, concise way (2-3 sentences or a simple list). The user's question: {content}"}
+                            {"role": "system", "content": "You are a helpful sports assistant. Only repeat the summary provided, do not add extra information or disclaimers."},
+                            {"role": "user", "content": f"Here is the result of the most recent NASCAR Cup race: {summary}\nPlease answer the user's question by repeating the summary exactly. The user's question: {content}"}
                         ]
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
                         await message.reply(response)

@@ -1,3 +1,4 @@
 discord.py
 requests
 pytz
+watchfiles>=0.21
