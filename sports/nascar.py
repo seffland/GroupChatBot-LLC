@@ -107,6 +107,66 @@ def get_next_nascar_race(series="cup"):
         print(f"Error fetching ESPN NASCAR events: {e}")
         return None
 
+def get_last_nascar_cup_winner():
+    """
+    Fetch the most recent completed NASCAR Cup race and return the winner's name, race name, date, and location.
+    Uses TheSportsDB API for reliability.
+    Returns None if not found or on error.
+    """
+    import requests
+    from datetime import datetime
+    import pytz
+    url = "https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=4393&s=2025"
+    try:
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        events = data.get('events', [])
+        now = datetime.now(pytz.utc)
+        past_events = []
+        for event in events:
+            date_str = event.get('dateEvent')
+            time_str = event.get('strTime')
+            if not date_str:
+                continue
+            dt_str = date_str
+            if time_str:
+                dt_str += 'T' + time_str
+            try:
+                event_time = datetime.fromisoformat(dt_str)
+                if event_time.tzinfo is None:
+                    event_time = pytz.utc.localize(event_time)
+            except Exception:
+                event_time = datetime.strptime(date_str, "%Y-%m-%d")
+                event_time = pytz.utc.localize(event_time)
+            if event_time < now and event.get('strResult'):
+                past_events.append((event_time, event))
+        if not past_events:
+            return None
+        past_events.sort(key=lambda x: x[0], reverse=True)
+        last_event_time, last_event = past_events[0]
+        race_name = last_event.get('strEvent', 'Unknown race')
+        result_str = last_event.get('strResult', '')
+        winner = 'Unknown'
+        if result_str:
+            lines = [line.strip() for line in result_str.split('\n') if line.strip()]
+            if lines:
+                first_line = lines[0]
+                parts = first_line.split('/')[1:]
+                if parts:
+                    winner = parts[0].strip()
+        date = last_event.get('dateEvent')
+        location = last_event.get('strVenue', 'Unknown location')
+        return {
+            'winner': winner or 'Unknown',
+            'race': race_name,
+            'date': date,
+            'location': location
+        }
+    except Exception as e:
+        print(f"[DEBUG] Exception in get_last_nascar_cup_winner: {e}")
+        return None
+
 def add_nascar_commands(bot):
     from discord import app_commands
     SERIES_CHOICES = [
@@ -127,3 +187,16 @@ def add_nascar_commands(bot):
             await interaction.followup.send(f"Next NASCAR {series.name} race: {race['name']} at {race['venue']} on {race['date']}")
         else:
             await interaction.followup.send(f"Could not find the next NASCAR {series.name} race.")
+
+    @bot.tree.command(
+        name="nascar_winner",
+        description="Show the winner of the most recent NASCAR Cup race (dev only)",
+        guild=discord.Object(id=int(DEVELOPMENT_SERVER_ID)) if DEVELOPMENT_SERVER_ID else None
+    )
+    async def nascar_winner(interaction: discord.Interaction):
+        await interaction.response.defer()
+        result = get_last_nascar_cup_winner()
+        if result:
+            await interaction.followup.send(f"{result['winner']} won the {result['race']} at {result['location']} on {result['date']}.")
+        else:
+            await interaction.followup.send("Could not fetch the last NASCAR Cup winner.")

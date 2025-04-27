@@ -1,5 +1,10 @@
 import os
+import re
 import requests
+from sports.nba import get_last_nba_games
+from sports.mlb import get_last_mlb_games
+from sports.nfl import get_last_nfl_games
+from sports.nascar import get_last_nascar_cup_winner
 from ollama_client import ask_ollama
 from db import add_message, get_history
 
@@ -9,7 +14,6 @@ def setup_on_message(bot, HISTORY_LIMIT):
         if message.author.bot:
             return
         # Listen for $TICKER in messages and reply with stock price (now global)
-        import re
         match = re.search(r'\$(\w{1,5})', message.content)
         if match:
             ticker = match.group(1).upper()
@@ -33,6 +37,81 @@ def setup_on_message(bot, HISTORY_LIMIT):
             channel_id = message.channel.id
             # Remove the mention from the message content
             content = message.content.replace(f'<@{bot.user.id}>', '').strip()
+            # --- SPORTS DETECTION ---
+            sports_keywords = [
+                'nba', 'mlb', 'nfl', 'basketball', 'baseball', 'football',
+                # NBA teams
+                'warriors', 'lakers', 'celtics', 'bucks', 'suns', 'knicks', 'nets', 'heat', 'bulls', 'mavericks', 'clippers', 'spurs', 'rockets', 'raptors', 'hawks', 'nuggets', '76ers', 'pelicans', 'jazz', 'thunder', 'timberwolves', 'pistons', 'magic', 'kings', 'wizards', 'grizzlies', 'hornets', 'pacers', 'cavaliers', 'blazers',
+                # MLB teams
+                'yankees', 'red sox', 'dodgers', 'giants', 'cubs', 'mets', 'braves', 'astros', 'cardinals', 'phillies', 'padres', 'brewers', 'rays', 'blue jays', 'white sox', 'guardians', 'twins', 'mariners', 'angels', 'diamondbacks', 'orioles', 'pirates', 'royals', 'athletics', 'rockies', 'nationals', 'reds', 'rangers', 'tigers', 'marlins',
+                # NFL teams
+                'patriots', 'chiefs', 'packers', 'steelers', 'cowboys', '49ers', 'giants', 'jets', 'bears', 'eagles', 'dolphins', 'ravens', 'bills', 'browns', 'colts', 'jaguars', 'texans', 'titans', 'broncos', 'chargers', 'raiders', 'bengals', 'saints', 'panthers', 'buccaneers', 'falcons', 'seahawks', 'rams', 'vikings', 'commanders', 'cardinals', 'lions',
+            ]
+            if any(kw in content.lower() for kw in sports_keywords):
+                def team_mentioned(team_name, msg):
+                    team_words = team_name.lower().replace('state', '').replace('fc', '').replace('sc', '').split()
+                    msg = msg.lower()
+                    return any(word for word in team_words if len(word) > 2 and word in msg)
+                # MLB scores summary if no team mentioned
+                if 'mlb' in content.lower() and not any(team_mentioned(team, content) for g in get_last_mlb_games() for team in g['teams']):
+                    mlb_games = get_last_mlb_games()
+                    if mlb_games:
+                        summary = '\n'.join([
+                            f"{g['teams'][0]} {g['scores'][0]} - {g['teams'][1]} {g['scores'][1]} [{g.get('label','Game')}]" for g in mlb_games
+                        ])
+                        llm_prompt = [
+                            {"role": "system", "content": "You are a helpful sports assistant."},
+                            {"role": "user", "content": f"Here are all the MLB scores from yesterday (or the most recent day with games):\n{summary}\nPlease answer the user's question in a short, concise way (2-3 sentences or a simple list). The user's question: {content}"}
+                        ]
+                        response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
+                        await message.reply(response)
+                        return
+                # NBA scores summary if no team mentioned
+                if 'nba' in content.lower() and not any(team_mentioned(team, content) for g in get_last_nba_games() for team in g['teams']):
+                    nba_games = get_last_nba_games()
+                    if nba_games:
+                        summary = '\n'.join([
+                            f"{g['teams'][0]} {g['scores'][0]} - {g['teams'][1]} {g['scores'][1]} [{g.get('label','Game')}]" for g in nba_games
+                        ])
+                        llm_prompt = [
+                            {"role": "system", "content": "You are a helpful sports assistant."},
+                            {"role": "user", "content": f"Here are all the NBA scores from yesterday (or the most recent day with games):\n{summary}\nPlease answer the user's question in a short, concise way (2-3 sentences or a simple list). The user's question: {content}"}
+                        ]
+                        response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
+                        await message.reply(response)
+                        return
+                # NFL scores summary if no team mentioned
+                if 'nfl' in content.lower() and not any(team_mentioned(team, content) for g in get_last_nfl_games() for team in g['teams']):
+                    nfl_games = get_last_nfl_games()
+                    if nfl_games:
+                        summary = '\n'.join([
+                            f"{g['teams'][0]} {g['scores'][0]} - {g['teams'][1]} {g['scores'][1]} [{g.get('label','Game')}]" for g in nfl_games
+                        ])
+                        llm_prompt = [
+                            {"role": "system", "content": "You are a helpful sports assistant."},
+                            {"role": "user", "content": f"Here are all the NFL scores from yesterday (or the most recent day with games):\n{summary}\nPlease answer the user's question in a short, concise way (2-3 sentences or a simple list). The user's question: {content}"}
+                        ]
+                        response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
+                        await message.reply(response)
+                        return
+                # NASCAR Cup winner summary if asked about last NASCAR/Cup race winner
+                nascar_keywords = [
+                    'who won the last nascar', 'who won the last cup race', 'last nascar winner', 'last cup winner',
+                    'who won nascar', 'who won cup race', 'nascar winner', 'cup winner'
+                ]
+                if any(kw in content.lower() for kw in nascar_keywords):
+                    cup_result = get_last_nascar_cup_winner()
+                    if cup_result:
+                        summary = f"{cup_result['winner']} won the {cup_result['race']} on {cup_result['date']}."
+                        llm_prompt = [
+                            {"role": "system", "content": "You are a helpful sports assistant."},
+                            {"role": "user", "content": f"Here is the result of the most recent NASCAR Cup race: {summary}\nPlease answer the user's question in a short, concise way (2-3 sentences or a simple list). The user's question: {content}"}
+                        ]
+                        response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
+                        await message.reply(response)
+                        return
+                # ...existing team-specific logic...
+            # --- END SPORTS DETECTION ---
             add_message(channel_id, "user", message.author.name, content)
             history = get_history(channel_id, HISTORY_LIMIT)
             response = ask_ollama(history, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))

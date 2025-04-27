@@ -3,6 +3,10 @@ from discord import app_commands
 import asyncio
 from ollama_client import ask_ollama
 from db import add_message, get_history, get_messages_after_user_last, get_messages_for_timeframe
+from sports.mlb import get_live_mlb_games
+from sports.nba import get_live_nba_games
+from sports.nfl import get_live_nfl_games
+import re
 
 # These will be injected from the main bot file
 OLLAMA_URL = None
