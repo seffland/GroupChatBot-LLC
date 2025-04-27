@@ -1,5 +1,6 @@
 import discord
 from db import get_history, add_message, get_last_imported_message_id, set_last_imported_message_id, search_history, message_count
+import os
 
 def add_historian_commands(bot):
     @bot.tree.command(name="history", description="Show the conversation history for this channel")
@@ -24,6 +25,10 @@ def add_historian_commands(bot):
 
     @bot.tree.command(name="import_history", description="Import all previous messages from this channel into the database (safe against duplicates)")
     async def import_history(interaction: discord.Interaction):
+        OWNER_USER_ID = int(os.getenv("OWNER_USER_ID"))
+        if interaction.user.id != OWNER_USER_ID:
+            await interaction.response.send_message("You are not authorized to run this command.", ephemeral=True)
+            return
         channel = interaction.channel
         channel_id = channel.id
         await interaction.response.defer(thinking=True, ephemeral=True)
