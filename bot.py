@@ -37,22 +37,22 @@ add_llm_commands(bot, OLLAMA_URL, HISTORY_LIMIT)
 
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user}')
+    #print(f'Logged in as {bot.user}')
     try:
         # Always sync to the development server for fast iteration,
         # but also sync globally if PRODUCTION_SERVER_ID is set.
         if DEVELOPMENT_SERVER_ID:
             guild_obj = discord.Object(id=int(DEVELOPMENT_SERVER_ID))
             synced = await bot.tree.sync(guild=guild_obj)
-            print(f'Synced {len(synced)} command(s) to development server {DEVELOPMENT_SERVER_ID}')
+            #print(f'Synced {len(synced)} command(s) to development server {DEVELOPMENT_SERVER_ID}')
         if PRODUCTION_SERVER_ID:
             # Optionally sync to a production server for testing before global
             prod_guild_obj = discord.Object(id=int(PRODUCTION_SERVER_ID))
             synced_prod = await bot.tree.sync(guild=prod_guild_obj)
-            print(f'Synced {len(synced_prod)} command(s) to production server {PRODUCTION_SERVER_ID}')
+            #print(f'Synced {len(synced_prod)} command(s) to production server {PRODUCTION_SERVER_ID}')
         # Always sync globally as well
         synced_global = await bot.tree.sync()
-        print(f'Synced {len(synced_global)} command(s) globally')
+        #print(f'Synced {len(synced_global)} command(s) globally')
     except Exception as e:
         print("Error during command sync:", e)
 
