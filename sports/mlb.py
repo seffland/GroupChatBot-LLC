@@ -104,6 +104,26 @@ def get_live_mlb_games():
             })
     return live_games
 
+def get_last_mlb_games():
+    events = get_mlb_games()
+    finished_games = []
+    for event in events:
+        competitions = event.get('competitions', [])
+        if not competitions:
+            continue
+        comp = competitions[0]
+        status = comp.get('status', {})
+        state = status.get('type', {}).get('state')
+        if state == 'post':
+            competitors = comp.get('competitors', [])
+            teams = [c['team']['displayName'] for c in competitors]
+            scores = [c.get('score', '?') for c in competitors]
+            finished_games.append({
+                'teams': teams,
+                'scores': scores
+            })
+    return finished_games
+
 def add_mlb_command(bot):
     @bot.tree.command(
         name="mlb",
@@ -130,12 +150,22 @@ def add_mlb_command(bot):
     async def mlb_live(interaction: discord.Interaction):
         await interaction.response.defer()
         live_games = get_live_mlb_games()
-        if not live_games:
-            await interaction.followup.send("There are no live MLB games right now.")
+        if live_games:
+            lines = []
+            for g in live_games:
+                teams = f"{g['teams'][0]} vs {g['teams'][1]}"
+                scores = f"`{g['scores'][0]}` - `{g['scores'][1]}`"
+                lines.append(f"{teams}: {scores}")
+            await interaction.followup.send("Live MLB games:\n" + "\n".join(lines))
             return
-        lines = []
-        for g in live_games:
-            teams = f"**{g['teams'][0]}** vs **{g['teams'][1]}**"
-            scores = f"`{g['scores'][0]}` - `{g['scores'][1]}`"
-            lines.append(f"⚾ {teams}: {scores}")
-        await interaction.followup.send("**Live MLB games:**\n" + "\n".join(lines))
+        # If no live games, show last finished games
+        last_games = get_last_mlb_games()
+        if last_games:
+            lines = []
+            for g in last_games:
+                teams = f"{g['teams'][0]} vs {g['teams'][1]}"
+                scores = f"`{g['scores'][0]}` - `{g['scores'][1]}`"
+                lines.append(f"{teams}: {scores}")
+            await interaction.followup.send("No live MLB games. Most recent finals:\n" + "\n".join(lines))
+        else:
+            await interaction.followup.send("No live or recent MLB games found.")
