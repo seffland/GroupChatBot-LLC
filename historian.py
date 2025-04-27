@@ -1,0 +1,86 @@
+import discord
+from db import get_history, add_message, get_last_imported_message_id, set_last_imported_message_id, search_history, message_count
+
+def add_historian_commands(bot):
+    @bot.tree.command(name="history", description="Show the conversation history for this channel")
+    async def history(interaction: discord.Interaction):
+        await interaction.response.defer()
+        channel_id = interaction.channel_id
+        history = get_history(channel_id, 1000)
+        if not history:
+            await interaction.followup.send("No conversation history for this channel.")
+            return
+        formatted = []
+        for msg in history:
+            role = msg.get("role", "user")
+            username = msg.get("username", "user")
+            content = msg.get("content", "")
+            formatted.append(f"**{username} ({role.capitalize()}):** {content}")
+        output = "\n".join(formatted)
+        if len(output) > 1900:
+            output = output[-1900:]
+            output = "...\n" + output
+        await interaction.followup.send(output)
+
+    @bot.tree.command(name="import_history", description="Import all previous messages from this channel into the database (safe against duplicates)")
+    async def import_history(interaction: discord.Interaction):
+        channel = interaction.channel
+        channel_id = channel.id
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        last_imported_id = get_last_imported_message_id(channel_id)
+        imported = 0
+        last_seen_id = last_imported_id
+        async for msg in channel.history(limit=None, oldest_first=True, after=None):
+            if last_imported_id and msg.id <= last_imported_id:
+                continue
+            if msg.author.bot:
+                continue
+            add_message(channel_id, "user", msg.author.name, msg.content)
+            imported += 1
+            last_seen_id = msg.id
+        if imported > 0 and last_seen_id:
+            set_last_imported_message_id(channel_id, last_seen_id)
+        await interaction.followup.send(f"Imported {imported} new messages from this channel.")
+
+    @bot.tree.command(name="search", description="Search the conversation history for a keyword in this channel")
+    @discord.app_commands.describe(query="The keyword or phrase to search for")
+    async def search(interaction: discord.Interaction, query: str):
+        channel_id = interaction.channel_id
+        results = search_history(channel_id, query, limit=10)
+        if not results:
+            await interaction.response.send_message(f"No results found for '{query}'.")
+            return
+        formatted = []
+        for msg in results:
+            role = msg.get("role", "user")
+            username = msg.get("username", "user")
+            content = msg.get("content", "")
+            formatted.append(f"**{username} ({role.capitalize()}):** {content}")
+        output = "\n".join(formatted)
+        if len(output) > 1900:
+            output = output[-1900:]
+            output = "...\n" + output
+        await interaction.response.send_message(output)
+
+    @bot.tree.command(name="message_count", description="Show how many messages have been sent in this channel in the last N days")
+    @discord.app_commands.describe(days="Number of days to look back, today, yesterday, or 'all' for all time")
+    async def message_count_cmd(interaction: discord.Interaction, days: str):
+        channel_id = interaction.channel_id
+        if days.lower() == 'all':
+            count = message_count(channel_id, 'all')
+            await interaction.response.send_message(f"{count} messages have been sent all time in this channel.")
+        elif days.lower() == 'today':
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+            count = message_count(channel_id, 0)
+            await interaction.response.send_message(f"{count} messages have been sent today in this channel.")
+        elif days.lower() == 'yesterday':
+            count = message_count(channel_id, 'yesterday')
+            await interaction.response.send_message(f"{count} messages have been sent yesterday in this channel.")
+        else:
+            try:
+                days_int = int(days)
+                count = message_count(channel_id, days_int)
+                await interaction.response.send_message(f"{count} messages have been sent in the last {days_int} day(s) in this channel.")
+            except ValueError:
+                await interaction.response.send_message("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
