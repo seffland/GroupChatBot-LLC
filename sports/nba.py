@@ -170,7 +170,10 @@ def add_nba_command(bot):
             return
         lines = []
         for g in live_games:
-            playoff_label = " (Playoff Game)" if g['playoff'] else ""
-            clock_info = f" | Period: {g['period']}, Clock: {g['clock']}" if g['clock'] else ""
-            lines.append(f"{g['teams'][0]} vs {g['teams'][1]}: {g['scores'][0]} - {g['scores'][1]}{playoff_label}{clock_info}")
-        await interaction.followup.send("Live NBA games:\n" + "\n".join(lines))
+            playoff_label = " 🏆" if g['playoff'] else ""
+            teams = f"**{g['teams'][0]}** vs **{g['teams'][1]}**"
+            scores = f"`{g['scores'][0]}` - `{g['scores'][1]}`"
+            period = f" | ⏱️ Period: `{g['period']}`" if g['period'] else ""
+            clock = f", Clock: `{g['clock']}`" if g['clock'] else ""
+            lines.append(f"🏀 {teams}: {scores}{playoff_label}{period}{clock}")
+        await interaction.followup.send("**Live NBA games:**\n" + "\n".join(lines))
