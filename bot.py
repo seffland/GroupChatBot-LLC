@@ -1,16 +1,13 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
-from ollama_client import ask_ollama
-from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id, search_history, get_messages_after_user_last, message_count, get_messages_for_timeframe
 import os
-import asyncio
 from dev import add_dev_commands
 from sports.f1 import add_f1_command
 from finance import add_finance_commands
 from sports.nascar import add_nascar_commands
-from sports.nba import add_nba_command
-from sports.mlb import add_mlb_command
+from sports.nba import add_nba_commands
+from sports.mlb import add_mlb_commands
+from sports.nfl import add_nfl_commands
 from on_message import setup_on_message
 from reactions import add_reaction_commands
 from historian import add_historian_commands
@@ -30,8 +27,9 @@ add_f1_command(bot)
 add_dev_commands(bot)
 add_finance_commands(bot)
 add_nascar_commands(bot)
-add_nba_command(bot)
-add_mlb_command(bot)
+add_nba_commands(bot)
+add_mlb_commands(bot)
+add_nfl_commands(bot)
 add_reaction_commands(bot)
 add_historian_commands(bot)
 setup_on_message(bot, HISTORY_LIMIT)

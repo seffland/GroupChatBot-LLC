@@ -153,16 +153,28 @@ def get_last_nba_games():
             competitors = comp.get('competitors', [])
             teams = [c['team']['displayName'] for c in competitors]
             scores = [c.get('score', '?') for c in competitors]
-            playoff = event.get('season', {}).get('type') == 3
+            season_type = str(event.get('season', {}).get('type'))
+            # NBA Finals detection: Playoff (3) and event name contains 'Finals'
+            event_name = event.get('name', '').lower()
+            if season_type == '3' and 'finals' in event_name:
+                label = 'NBA Finals'
+            elif season_type == '3':
+                label = 'Playoff'
+            elif season_type == '2':
+                label = 'Regular Season'
+            elif season_type == '1':
+                label = 'Preseason'
+            else:
+                label = 'Game'
             finished_games.append({
                 'teams': teams,
                 'scores': scores,
-                'playoff': playoff
+                'label': label
             })
     return finished_games
 
 
-def add_nba_command(bot):
+def add_nba_commands(bot):
     @bot.tree.command(
         name="nba",
         description="Show the current or next NBA game for a team",
@@ -208,10 +220,10 @@ def add_nba_command(bot):
         if last_games:
             lines = []
             for g in last_games:
-                playoff_label = " [Playoff]" if g['playoff'] else ""
+                label = g.get('label', 'Game')
                 teams = f"{g['teams'][0]} vs {g['teams'][1]}"
                 scores = f"`{g['scores'][0]}` - `{g['scores'][1]}`"
-                lines.append(f"{teams}: {scores}{playoff_label}")
-            await interaction.followup.send("No live NBA games. Most recent finals:\n" + "\n".join(lines))
+                lines.append(f"{teams}: {scores} [{label}]")
+            await interaction.followup.send("No live NBA games. Most recent games:\n" + "\n".join(lines))
         else:
             await interaction.followup.send("No live or recent NBA games found.")
