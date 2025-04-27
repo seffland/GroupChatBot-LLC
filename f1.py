@@ -28,6 +28,7 @@ async def get_next_f1_race():
                 ('SecondPractice', 'Practice 2'),
                 ('ThirdPractice', 'Practice 3'),
                 ('Sprint', 'Sprint'),
+                ('SprintQualifying', 'Sprint Qualifying'),
                 ('Qualifying', 'Qualifying'),
             ]
             for key, label in event_types:

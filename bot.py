@@ -4,9 +4,8 @@ from discord.ext import commands
 from ollama_client import ask_ollama
 from db import add_message, get_history, get_last_imported_message_id, set_last_imported_message_id, search_history, get_messages_after_user_last, message_count, get_messages_for_timeframe
 import os
-import requests
 import asyncio
-#from dev import add_dev_commands
+from dev import add_dev_commands
 from f1 import add_f1_command
 from finance import add_finance_commands
 from nascar import add_nascar_commands
@@ -23,7 +22,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 add_f1_command(bot)
-#add_dev_commands(bot)
+add_dev_commands(bot)
 add_finance_commands(bot)
 add_nascar_commands(bot)
 setup_on_message(bot, HISTORY_LIMIT)
