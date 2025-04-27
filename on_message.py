@@ -5,6 +5,7 @@ from sports.nba import get_last_nba_games
 from sports.mlb import get_last_mlb_games
 from sports.nfl import get_last_nfl_games
 from sports.nascar import get_last_nascar_cup_winner
+from sports.f1 import get_last_f1_race_winner
 from ollama_client import ask_ollama
 from db import add_message, get_history
 
@@ -99,6 +100,10 @@ def setup_on_message(bot, HISTORY_LIMIT):
                     'nascar' in content.lower() and
                     (('winner' in content.lower() or 'won' in content.lower()) and ('race' in content.lower() or 'cup' in content.lower()))
                 )
+                f1_trigger = (
+                    'f1' in content.lower() and
+                    (('winner' in content.lower() or 'won' in content.lower()) and ('race' in content.lower() or 'grand prix' in content.lower()))
+                )
                 if nascar_trigger:
                     cup_result = get_last_nascar_cup_winner()
                     if cup_result:
@@ -106,6 +111,17 @@ def setup_on_message(bot, HISTORY_LIMIT):
                         llm_prompt = [
                             {"role": "system", "content": "You are a helpful sports assistant. Only repeat the summary provided, do not add extra information or disclaimers."},
                             {"role": "user", "content": f"Here is the result of the most recent NASCAR Cup race: {summary}\nPlease answer the user's question by repeating the summary exactly. The user's question: {content}"}
+                        ]
+                        response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
+                        await message.reply(response)
+                        return
+                if f1_trigger:
+                    f1_result = await get_last_f1_race_winner()
+                    if f1_result:
+                        summary = f"{f1_result['winner']} won the {f1_result['race']} at {f1_result['location']} on {f1_result['date']}."
+                        llm_prompt = [
+                            {"role": "system", "content": "You are a helpful sports assistant. Only repeat the summary provided, do not add extra information or disclaimers."},
+                            {"role": "user", "content": f"Here is the result of the most recent F1 race: {summary}\nPlease answer the user's question by repeating the summary exactly. The user's question: {content}"}
                         ]
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
                         await message.reply(response)

@@ -1,18 +1,14 @@
 services:
   bot:
     build: .
-    working_dir: /app
-    # ────────────────▼ cmd to restart ────────────────▼ what to watch
-    command: watchfiles "python bot.py" /app
     env_file:
       - .env
     environment:
       - OLLAMA_URL=http://plexllm-ollama-1:11434
-    volumes:
-      - "F:/Programming/GroupChatBot,LLC:/app"   # live-mounted code
-      - ./data:/app/data
     networks:
       - plexllm_app-network
+    volumes:
+      - ./data:/app/data
 
 networks:
   plexllm_app-network:
