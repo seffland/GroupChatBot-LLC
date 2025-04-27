@@ -38,9 +38,10 @@ def setup_on_message(bot, HISTORY_LIMIT):
             channel_id = message.channel.id
             # Remove the mention from the message content
             content = message.content.replace(f'<@{bot.user.id}>', '').strip()
+            content = content.lower().strip()
             # --- SPORTS DETECTION ---
             sports_keywords = [
-                'nba', 'mlb', 'nfl', 'basketball', 'baseball', 'football',
+                'nba', 'mlb', 'nfl', 'basketball', 'baseball', 'football', 'f1', 'nascar',
                 # NBA teams
                 'warriors', 'lakers', 'celtics', 'bucks', 'suns', 'knicks', 'nets', 'heat', 'bulls', 'mavericks', 'clippers', 'spurs', 'rockets', 'raptors', 'hawks', 'nuggets', '76ers', 'pelicans', 'jazz', 'thunder', 'timberwolves', 'pistons', 'magic', 'kings', 'wizards', 'grizzlies', 'hornets', 'pacers', 'cavaliers', 'blazers',
                 # MLB teams
@@ -48,18 +49,16 @@ def setup_on_message(bot, HISTORY_LIMIT):
                 # NFL teams
                 'patriots', 'chiefs', 'packers', 'steelers', 'cowboys', '49ers', 'giants', 'jets', 'bears', 'eagles', 'dolphins', 'ravens', 'bills', 'browns', 'colts', 'jaguars', 'texans', 'titans', 'broncos', 'chargers', 'raiders', 'bengals', 'saints', 'panthers', 'buccaneers', 'falcons', 'seahawks', 'rams', 'vikings', 'commanders', 'cardinals', 'lions',
             ]
-            if any(kw in content.lower() for kw in sports_keywords):
+            if any(kw in content for kw in sports_keywords):
                 def team_mentioned(team_name, msg):
                     team_words = team_name.lower().replace('state', '').replace('fc', '').replace('sc', '').split()
                     msg = msg.lower()
                     return any(word for word in team_words if len(word) > 2 and word in msg)
                 # MLB scores summary if no team mentioned
-                if 'mlb' in content.lower() and not any(team_mentioned(team, content) for g in get_last_mlb_games() for team in g['teams']):
+                if 'mlb' in content and not any(team_mentioned(team, content) for g in get_last_mlb_games() for team in g['teams']):
                     mlb_games = get_last_mlb_games()
                     if mlb_games:
-                        summary = '\n'.join([
-                            f"{g['teams'][0]} {g['scores'][0]} - {g['teams'][1]} {g['scores'][1]} [{g.get('label','Game')}]" for g in mlb_games
-                        ])
+                        summary = '\n'.join([f"{g['teams'][0]} {g['scores'][0]} - {g['teams'][1]} {g['scores'][1]} [{g.get('label','Game')}]" for g in mlb_games])
                         llm_prompt = [
                             {"role": "system", "content": "You are a helpful sports assistant."},
                             {"role": "user", "content": f"Here are all the MLB scores from yesterday (or the most recent day with games):\n{summary}\nPlease answer the user's question in a short, concise way (2-3 sentences or a simple list). The user's question: {content}"}
@@ -68,12 +67,10 @@ def setup_on_message(bot, HISTORY_LIMIT):
                         await message.reply(response)
                         return
                 # NBA scores summary if no team mentioned
-                if 'nba' in content.lower() and not any(team_mentioned(team, content) for g in get_last_nba_games() for team in g['teams']):
+                if 'nba' in content and not any(team_mentioned(team, content) for g in get_last_nba_games() for team in g['teams']):
                     nba_games = get_last_nba_games()
                     if nba_games:
-                        summary = '\n'.join([
-                            f"{g['teams'][0]} {g['scores'][0]} - {g['teams'][1]} {g['scores'][1]} [{g.get('label','Game')}]" for g in nba_games
-                        ])
+                        summary = '\n'.join([f"{g['teams'][0]} {g['scores'][0]} - {g['teams'][1]} {g['scores'][1]} [{g.get('label','Game')}]" for g in nba_games])
                         llm_prompt = [
                             {"role": "system", "content": "You are a helpful sports assistant."},
                             {"role": "user", "content": f"Here are all the NBA scores from yesterday (or the most recent day with games):\n{summary}\nPlease answer the user's question in a short, concise way (2-3 sentences or a simple list). The user's question: {content}"}
@@ -82,12 +79,10 @@ def setup_on_message(bot, HISTORY_LIMIT):
                         await message.reply(response)
                         return
                 # NFL scores summary if no team mentioned
-                if 'nfl' in content.lower() and not any(team_mentioned(team, content) for g in get_last_nfl_games() for team in g['teams']):
+                if 'nfl' in content and not any(team_mentioned(team, content) for g in get_last_nfl_games() for team in g['teams']):
                     nfl_games = get_last_nfl_games()
                     if nfl_games:
-                        summary = '\n'.join([
-                            f"{g['teams'][0]} {g['scores'][0]} - {g['teams'][1]} {g['scores'][1]} [{g.get('label','Game')}]" for g in nfl_games
-                        ])
+                        summary = '\n'.join([f"{g['teams'][0]} {g['scores'][0]} - {g['teams'][1]} {g['scores'][1]} [{g.get('label','Game')}]" for g in nfl_games])
                         llm_prompt = [
                             {"role": "system", "content": "You are a helpful sports assistant."},
                             {"role": "user", "content": f"Here are all the NFL scores from yesterday (or the most recent day with games):\n{summary}\nPlease answer the user's question in a short, concise way (2-3 sentences or a simple list). The user's question: {content}"}
@@ -97,12 +92,12 @@ def setup_on_message(bot, HISTORY_LIMIT):
                         return
                 # More robust NASCAR Cup winner detection
                 nascar_trigger = (
-                    'nascar' in content.lower() and
-                    (('winner' in content.lower() or 'won' in content.lower()) and ('race' in content.lower() or 'cup' in content.lower()))
+                    'nascar' in content and
+                    (('winner' in content or 'won' in content) and ('race' in content or 'cup' in content))
                 )
                 f1_trigger = (
-                    'f1' in content.lower() and
-                    (('winner' in content.lower() or 'won' in content.lower()) and ('race' in content.lower() or 'grand prix' in content.lower()))
+                    'f1' in content and
+                    ('winner' in content or 'won' in content)
                 )
                 if nascar_trigger:
                     cup_result = get_last_nascar_cup_winner()
