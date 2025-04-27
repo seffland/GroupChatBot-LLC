@@ -6,9 +6,9 @@ from db import add_message, get_history, get_last_imported_message_id, set_last_
 import os
 import asyncio
 from dev import add_dev_commands
-from f1 import add_f1_command
+from sports.f1 import add_f1_command
 from finance import add_finance_commands
-from nascar import add_nascar_commands
+from sports.nascar import add_nascar_commands
 from on_message import setup_on_message
 from reactions import add_reaction_commands
 from historian import add_historian_commands
