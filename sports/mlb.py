@@ -5,11 +5,17 @@ from discord import app_commands
 
 DEVELOPMENT_SERVER_ID = os.getenv('DEVELOPMENT_SERVER_ID')
 
-def get_mlb_games():
+def get_mlb_games(date_str=None):
+    """
+    Fetch MLB games for a specific date (YYYYMMDD) or today if not provided.
+    """
     url = "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard"
+    if date_str:
+        url += f"?dates={date_str}"
     resp = requests.get(url, timeout=10)
     resp.raise_for_status()
-    events = resp.json().get('events', [])
+    data = resp.json()
+    events = data.get('events', [])
     return events
 
 def get_live_mlb_games():
@@ -33,35 +39,42 @@ def get_live_mlb_games():
     return live_games
 
 def get_last_mlb_games():
-    events = get_mlb_games()
-    finished_games = []
-    for event in events:
-        competitions = event.get('competitions', [])
-        for comp in competitions:  # Iterate over all competitions for doubleheaders
-            status = comp.get('status', {})
-            state = status.get('type', {}).get('state')
-            if state == 'post':
-                competitors = comp.get('competitors', [])
-                teams = [c['team']['displayName'] for c in competitors]
-                scores = [c.get('score', '?') for c in competitors]
-                season_type = str(event.get('season', {}).get('type'))
-                event_name = event.get('name', '').lower()
-                if season_type == '3' and 'world series' in event_name:
-                    label = 'World Series'
-                elif season_type == '3':
-                    label = 'Postseason'
-                elif season_type == '2':
-                    label = 'Regular Season'
-                elif season_type == '1':
-                    label = 'Preseason'
-                else:
-                    label = 'Game'
-                finished_games.append({
-                    'teams': teams,
-                    'scores': scores,
-                    'label': label
-                })
-    return finished_games
+    import datetime
+    # Try today, then go back up to 7 days
+    for days_ago in range(0, 7):
+        date = datetime.datetime.now() - datetime.timedelta(days=days_ago)
+        date_str = date.strftime('%Y%m%d')
+        events = get_mlb_games(date_str)
+        finished_games = []
+        for event in events:
+            competitions = event.get('competitions', [])
+            for comp in competitions:
+                status = comp.get('status', {})
+                state = status.get('type', {}).get('state')
+                if state == 'post':
+                    competitors = comp.get('competitors', [])
+                    teams = [c['team']['displayName'] for c in competitors]
+                    scores = [c.get('score', '?') for c in competitors]
+                    season_type = str(event.get('season', {}).get('type'))
+                    event_name = event.get('name', '').lower()
+                    if season_type == '3' and 'world series' in event_name:
+                        label = 'World Series'
+                    elif season_type == '3':
+                        label = 'Postseason'
+                    elif season_type == '2':
+                        label = 'Regular Season'
+                    elif season_type == '1':
+                        label = 'Preseason'
+                    else:
+                        label = 'Game'
+                    finished_games.append({
+                        'teams': teams,
+                        'scores': scores,
+                        'label': label
+                    })
+        if finished_games:
+            return finished_games
+    return []
 
 def add_mlb_commands(bot):
     @bot.tree.command(

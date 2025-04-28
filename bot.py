@@ -8,6 +8,7 @@ from sports.nascar import add_nascar_commands
 from sports.nba import add_nba_commands
 from sports.mlb import add_mlb_commands
 from sports.nfl import add_nfl_commands
+from sports.pga import add_pga_commands
 from on_message import setup_on_message
 from reactions import add_reaction_commands
 from historian import add_historian_commands
@@ -30,6 +31,7 @@ add_nascar_commands(bot)
 add_nba_commands(bot)
 add_mlb_commands(bot)
 add_nfl_commands(bot)
+add_pga_commands(bot)
 add_reaction_commands(bot)
 add_historian_commands(bot)
 setup_on_message(bot, HISTORY_LIMIT)
