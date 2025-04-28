@@ -15,9 +15,10 @@ def setup_on_message(bot, HISTORY_LIMIT):
         if message.author.bot:
             return
         # Listen for $TICKER in messages and reply with stock price (now global)
-        match = re.search(r'\$(\w{1,5})', message.content)
+        # Match $ followed by 1-5 uppercase letters, ensuring it's a whole word
+        match = re.search(r'\$([A-Z]{1,5})\b', message.content)
         if match:
-            ticker = match.group(1).upper()
+            ticker = match.group(1)
             try:
                 finnhub_api_key = os.getenv('FINNHUB_API_KEY')
                 if not finnhub_api_key:
