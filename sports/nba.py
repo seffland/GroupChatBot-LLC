@@ -85,7 +85,7 @@ def add_nba_commands(bot):
     @bot.tree.command(
         name="nba",
         description="List all currently live NBA games",
-        guild=discord.Object(id=int(DEVELOPMENT_SERVER_ID)) if DEVELOPMENT_SERVER_ID else None
+        #guild=discord.Object(id=int(DEVELOPMENT_SERVER_ID)) if DEVELOPMENT_SERVER_ID else None
     )
     async def nba(interaction: discord.Interaction):
         await interaction.response.defer()

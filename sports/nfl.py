@@ -74,7 +74,7 @@ def add_nfl_commands(bot):
     @bot.tree.command(
         name="nfl",
         description="List all currently live NFL games",
-        guild=discord.Object(id=int(DEVELOPMENT_SERVER_ID)) if DEVELOPMENT_SERVER_ID else None
+        #guild=discord.Object(id=int(DEVELOPMENT_SERVER_ID)) if DEVELOPMENT_SERVER_ID else None
     )
     async def nfl(interaction: discord.Interaction):
         await interaction.response.defer()

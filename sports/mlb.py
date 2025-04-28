@@ -17,22 +17,19 @@ def get_live_mlb_games():
     live_games = []
     for event in events:
         competitions = event.get('competitions', [])
-        if not competitions:
-            continue
-        comp = competitions[0]
-        status = comp.get('status', {})
-        state = status.get('type', {}).get('state')
-        if state == 'in':
-            # Use shortDetail for Top/Bot inning info
-            short_detail = status.get('type', {}).get('shortDetail', '')
-            competitors = comp.get('competitors', [])
-            teams = [c['team']['displayName'] for c in competitors]
-            scores = [c.get('score', '?') for c in competitors]
-            live_games.append({
-                'teams': teams,
-                'scores': scores,
-                'inning_status': short_detail
-            })
+        for comp in competitions:  # Iterate over all competitions for doubleheaders
+            status = comp.get('status', {})
+            state = status.get('type', {}).get('state')
+            if state == 'in':
+                short_detail = status.get('type', {}).get('shortDetail', '')
+                competitors = comp.get('competitors', [])
+                teams = [c['team']['displayName'] for c in competitors]
+                scores = [c.get('score', '?') for c in competitors]
+                live_games.append({
+                    'teams': teams,
+                    'scores': scores,
+                    'inning_status': short_detail
+                })
     return live_games
 
 def get_last_mlb_games():
@@ -40,40 +37,37 @@ def get_last_mlb_games():
     finished_games = []
     for event in events:
         competitions = event.get('competitions', [])
-        if not competitions:
-            continue
-        comp = competitions[0]
-        status = comp.get('status', {})
-        state = status.get('type', {}).get('state')
-        if state == 'post':
-            competitors = comp.get('competitors', [])
-            teams = [c['team']['displayName'] for c in competitors]
-            scores = [c.get('score', '?') for c in competitors]
-            season_type = str(event.get('season', {}).get('type'))
-            # World Series detection: Postseason (3) and event name contains 'World Series'
-            event_name = event.get('name', '').lower()
-            if season_type == '3' and 'world series' in event_name:
-                label = 'World Series'
-            elif season_type == '3':
-                label = 'Postseason'
-            elif season_type == '2':
-                label = 'Regular Season'
-            elif season_type == '1':
-                label = 'Preseason'
-            else:
-                label = 'Game'
-            finished_games.append({
-                'teams': teams,
-                'scores': scores,
-                'label': label
-            })
+        for comp in competitions:  # Iterate over all competitions for doubleheaders
+            status = comp.get('status', {})
+            state = status.get('type', {}).get('state')
+            if state == 'post':
+                competitors = comp.get('competitors', [])
+                teams = [c['team']['displayName'] for c in competitors]
+                scores = [c.get('score', '?') for c in competitors]
+                season_type = str(event.get('season', {}).get('type'))
+                event_name = event.get('name', '').lower()
+                if season_type == '3' and 'world series' in event_name:
+                    label = 'World Series'
+                elif season_type == '3':
+                    label = 'Postseason'
+                elif season_type == '2':
+                    label = 'Regular Season'
+                elif season_type == '1':
+                    label = 'Preseason'
+                else:
+                    label = 'Game'
+                finished_games.append({
+                    'teams': teams,
+                    'scores': scores,
+                    'label': label
+                })
     return finished_games
 
 def add_mlb_commands(bot):
     @bot.tree.command(
         name="mlb",
         description="List all currently live MLB games",
-        guild=discord.Object(id=int(DEVELOPMENT_SERVER_ID)) if DEVELOPMENT_SERVER_ID else None
+        #guild=discord.Object(id=int(DEVELOPMENT_SERVER_ID)) if DEVELOPMENT_SERVER_ID else None
     )
     async def mlb(interaction: discord.Interaction):
         await interaction.response.defer()
