@@ -23,9 +23,13 @@ def add_llm_commands(bot, ollama_url, history_limit):
         await interaction.response.defer()
         channel_id = interaction.channel_id
         add_message(channel_id, "user", interaction.user.name, message)
-        history = get_history(channel_id, HISTORY_LIMIT)
+        SHORT_HISTORY_LIMIT = 8
+        history = get_history(channel_id, SHORT_HISTORY_LIMIT)
+        llm_prompt = [
+            {"role": "system", "content": "You are a helpful assistant. Answer the user's request directly and concisely. Do not summarize previous conversation unless asked."}
+        ] + history
         try:
-            response = await asyncio.to_thread(ask_ollama, history, OLLAMA_URL)
+            response = await asyncio.to_thread(ask_ollama, llm_prompt, OLLAMA_URL)
         except Exception as e:
             response = f"Error: {e}"
         add_message(channel_id, "assistant", bot.user.name, response)
