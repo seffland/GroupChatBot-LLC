@@ -127,9 +127,16 @@ def setup_on_message(bot, HISTORY_LIMIT):
             add_message(channel_id, "user", message.author.name, content)
             SHORT_HISTORY_LIMIT = 8
             history = get_history(channel_id, SHORT_HISTORY_LIMIT)
+            # Prefix username to content for each message
+            formatted_history = []
+            for msg in history:
+                role = msg.get("role", "user")
+                username = msg.get("username", "user")
+                content = msg.get("content", "")
+                formatted_history.append({"role": role, "content": f"{username}: {content}"})
             llm_prompt = [
                 {"role": "system", "content": "You are a helpful assistant. Answer the user's request directly and concisely. Do not summarize previous conversation unless asked."}
-            ] + history
+            ] + formatted_history
             response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
             add_message(channel_id, "assistant", bot.user.name, response)
             await message.reply(response)
