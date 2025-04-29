@@ -13,6 +13,7 @@ from on_message import setup_on_message
 from reactions import add_reaction_commands
 from historian import add_historian_commands
 from llm import add_llm_commands
+from reccomendations import add_recommendations_command
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434')
@@ -36,6 +37,7 @@ add_reaction_commands(bot)
 add_historian_commands(bot)
 setup_on_message(bot, HISTORY_LIMIT)
 add_llm_commands(bot, OLLAMA_URL, HISTORY_LIMIT)
+add_recommendations_command(bot)
 
 @bot.event
 async def on_ready():
