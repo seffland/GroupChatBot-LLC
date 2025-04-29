@@ -119,7 +119,10 @@ def add_reaction_commands(bot):
                 await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
                 return
         user_joy_given = {}
+        users_with_messages = set()
         async for msg in channel.history(limit=None, oldest_first=True, after=after, before=before):
+            if not msg.author.bot:
+                users_with_messages.add(msg.author.name)
             for reaction in msg.reactions:
                 is_joy = False
                 if str(reaction.emoji) == '😂':
@@ -138,6 +141,10 @@ def add_reaction_commands(bot):
                         if user.bot:
                             continue
                         user_joy_given[user.name] = user_joy_given.get(user.name, 0) + 1
+        # Ensure all users with messages are in the dict, even if they gave 0 :joy:
+        for user in users_with_messages:
+            if user not in user_joy_given:
+                user_joy_given[user] = 0
         if not user_joy_given:
             await interaction.followup.send("Everyone is stingy! No :joy: reactions were given in this channel for the given period.")
             return
