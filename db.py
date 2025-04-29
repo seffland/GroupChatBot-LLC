@@ -40,6 +40,18 @@ with sqlite3.connect(DB_PATH) as conn:
             FOREIGN KEY (recommendation_id) REFERENCES recommendations(id)
         )
     ''')
+    # Hall of Fame Quotes table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS quotes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel_id INTEGER,
+            message_id INTEGER,
+            username TEXT,
+            content TEXT,
+            quoted_by TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
 
 def add_message(channel_id: int, role: str, username: str, content: str):
     with sqlite3.connect(DB_PATH) as conn:
@@ -311,4 +323,28 @@ def get_recommendations_with_watchers() -> list[dict]:
         return [
             {"title": row[0], "watched_by": row[1].split(",") if row[1] else []}
             for row in cursor.fetchall()
+        ]
+
+def add_quote(channel_id: int, message_id: int, username: str, content: str, quoted_by: str):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            "INSERT INTO quotes (channel_id, message_id, username, content, quoted_by) VALUES (?, ?, ?, ?, ?)",
+            (channel_id, message_id, username, content, quoted_by)
+        )
+        conn.commit()
+
+def get_quotes(channel_id: int = None, limit: int = 10):
+    with sqlite3.connect(DB_PATH) as conn:
+        if channel_id:
+            cursor = conn.execute(
+                "SELECT username, content, quoted_by, timestamp FROM quotes WHERE channel_id = ? ORDER BY id DESC LIMIT ?",
+                (channel_id, limit)
+            )
+        else:
+            cursor = conn.execute(
+                "SELECT username, content, quoted_by, timestamp FROM quotes ORDER BY id DESC LIMIT ?",
+                (limit,)
+            )
+        return [
+            {"username": row[0], "content": row[1], "quoted_by": row[2], "timestamp": row[3]} for row in cursor.fetchall()
         ]

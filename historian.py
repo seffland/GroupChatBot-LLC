@@ -1,6 +1,7 @@
 import discord
 from db import get_history, add_message, get_last_imported_message_id, set_last_imported_message_id, search_history, message_count
 import os
+from db import add_quote, get_quotes
 
 def add_historian_commands(bot):
     @bot.tree.command(name="history", description="Show the conversation history for this channel")
@@ -89,3 +90,22 @@ def add_historian_commands(bot):
                 await interaction.response.send_message(f"{count} messages have been sent in the last {days_int} day(s) in this channel.")
             except ValueError:
                 await interaction.response.send_message("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
+
+    @bot.tree.context_menu(name="Quote to Hall of Fame")
+    async def quote_to_hof(interaction: discord.Interaction, message: discord.Message):
+        channel_id = interaction.channel.id
+        add_quote(channel_id, message.id, message.author.name, message.content, interaction.user.name)
+        await interaction.response.send_message(f"Quoted {message.author.name}: '{message.content[:100]}...' to the Hall of Fame!", ephemeral=True)
+
+    @bot.tree.command(name="quote", description="Show recent Hall of Fame quotes for this channel")
+    async def quote(interaction: discord.Interaction):
+        channel_id = interaction.channel_id
+        quotes = get_quotes(channel_id, limit=5)
+        if not quotes:
+            await interaction.response.send_message("No Hall of Fame quotes yet for this channel.")
+            return
+        formatted = []
+        for q in quotes:
+            formatted.append(f"**{q['username']}**: \"{q['content']}\"\n_Quoted by {q['quoted_by']} on {q['timestamp']}_")
+        output = "\n\n".join(formatted)
+        await interaction.response.send_message(output)
