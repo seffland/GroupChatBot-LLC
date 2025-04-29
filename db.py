@@ -24,6 +24,22 @@ with sqlite3.connect(DB_PATH) as conn:
             last_message_id INTEGER
         )
     ''')
+    # Track TV show recommendations
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS recommendations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL UNIQUE
+        )
+    ''')
+    # Track which users have watched which recommendations
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS recommendations_watched (
+            recommendation_id INTEGER,
+            username TEXT,
+            PRIMARY KEY (recommendation_id, username),
+            FOREIGN KEY (recommendation_id) REFERENCES recommendations(id)
+        )
+    ''')
 
 def add_message(channel_id: int, role: str, username: str, content: str):
     with sqlite3.connect(DB_PATH) as conn:
@@ -257,4 +273,42 @@ def get_messages_for_timeframe(channel_id: int, timeframe: str) -> List[Dict[str
         rows = cursor.fetchall()
         return [
             {"role": row[0], "username": row[1], "content": row[2]} for row in rows
+        ]
+
+def add_recommendation(title: str):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO recommendations (title) VALUES (?)",
+            (title,)
+        )
+        conn.commit()
+
+def mark_recommendation_watched(title: str, username: str):
+    with sqlite3.connect(DB_PATH) as conn:
+        # Get recommendation id
+        cursor = conn.execute(
+            "SELECT id FROM recommendations WHERE title = ?",
+            (title,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError("Recommendation not found")
+        rec_id = row[0]
+        conn.execute(
+            "INSERT OR IGNORE INTO recommendations_watched (recommendation_id, username) VALUES (?, ?)",
+            (rec_id, username)
+        )
+        conn.commit()
+
+def get_recommendations_with_watchers() -> list[dict]:
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.execute('''
+            SELECT r.title, GROUP_CONCAT(w.username) as watched_by
+            FROM recommendations r
+            LEFT JOIN recommendations_watched w ON r.id = w.recommendation_id
+            GROUP BY r.id
+        ''')
+        return [
+            {"title": row[0], "watched_by": row[1].split(",") if row[1] else []}
+            for row in cursor.fetchall()
         ]
