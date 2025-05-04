@@ -7,6 +7,8 @@ from sports.mlb import get_live_mlb_games
 from sports.nba import get_live_nba_games
 from sports.nfl import get_live_nfl_games
 import re
+from on_message import channel_personalities  # Import the shared dict
+from util import fix_mojibake  # Import the mojibake fixer
 
 # These will be injected from the main bot file
 OLLAMA_URL = None
@@ -45,13 +47,16 @@ def add_llm_commands(bot, ollama_url, history_limit):
             username = msg.get("username", "user")
             content = msg.get("content", "")
             formatted_history.append({"role": role, "content": f"{username}: {content}"})
+        # Use channel personality if set, else default
+        system_prompt = channel_personalities.get(channel_id, "You are a helpful assistant. Answer the user's request directly and concisely. Do not summarize previous conversation unless asked.")
         llm_prompt = [
-            {"role": "system", "content": "You are a helpful assistant. Answer the user's request directly and concisely. Do not summarize previous conversation unless asked."}
+            {"role": "system", "content": system_prompt}
         ] + formatted_history
         try:
             response = await asyncio.to_thread(ask_ollama, llm_prompt, OLLAMA_URL)
         except Exception as e:
             response = f"Error: {e}"
+        response = fix_mojibake(response)
         add_message(channel_id, "assistant", bot.user.name, response)
         await interaction.followup.send(response)
 
@@ -63,9 +68,11 @@ def add_llm_commands(bot, ollama_url, history_limit):
         if not messages:
             await interaction.response.send_message("No new messages since your last message.")
             return
+        # Use channel personality if set, else default
+        system_prompt = channel_personalities.get(channel_id, "Summarize the following conversation for me. Be concise and to the point. 50 words or less please.")
         summary_prompt = [{
             "role": "system",
-            "content": "Summarize the following conversation for me. Be concise and to the point. 50 words or less please."
+            "content": system_prompt
         }] + messages
         await interaction.response.defer()
         summary = ask_ollama(summary_prompt, OLLAMA_URL)
@@ -73,6 +80,7 @@ def add_llm_commands(bot, ollama_url, history_limit):
         summary = re.sub(r'<think>.*?</think>', '', summary, flags=re.DOTALL)
         summary = re.sub(r'<think>|</think>', '', summary)
         summary = summary.strip()
+        summary = fix_mojibake(summary)
         if len(summary) > 1900:
             summary = summary[:1900] + "..."
         await interaction.followup.send(f"**TL;DR:**\n{summary}")
@@ -89,9 +97,11 @@ def add_llm_commands(bot, ollama_url, history_limit):
         if not messages:
             await interaction.response.send_message(f"No messages found for timeframe '{timeframe}'.")
             return
+        # Use channel personality if set, else default
+        system_prompt = channel_personalities.get(channel_id, f"Summarize the following conversation for the timeframe '{timeframe}'. Be concise and to the point. 500 words or less.")
         summary_prompt = [{
             "role": "system",
-            "content": f"Summarize the following conversation for the timeframe '{timeframe}'. Be concise and to the point. 500 words or less."
+            "content": system_prompt
         }] + messages
         await interaction.response.defer()
         summary = ask_ollama(summary_prompt, OLLAMA_URL)
@@ -99,6 +109,7 @@ def add_llm_commands(bot, ollama_url, history_limit):
         summary = re.sub(r'<think>.*?</think>', '', summary, flags=re.DOTALL)
         summary = re.sub(r'<think>|</think>', '', summary)
         summary = summary.strip()
+        summary = fix_mojibake(summary)
         if len(summary) > 1900:
             summary = summary[:1900] + "..."
         await interaction.followup.send(f"**Summary for {timeframe}:**\n{summary}")
@@ -106,8 +117,10 @@ def add_llm_commands(bot, ollama_url, history_limit):
     @bot.tree.context_menu(name="ELI5 (Explain Like I'm 5)")
     async def eli5(interaction: discord.Interaction, message: discord.Message):
         await interaction.response.defer()
+        # Use channel personality if set, else default
+        system_prompt = channel_personalities.get(interaction.channel_id, "Explain the following message as if you are talking to a 5-year-old. Use simple words and keep it short.")
         prompt = [
-            {"role": "system", "content": "Explain the following message as if you are talking to a 5-year-old. Use simple words and keep it short."},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": message.content}
         ]
         explanation = ask_ollama(prompt, OLLAMA_URL)
@@ -115,6 +128,7 @@ def add_llm_commands(bot, ollama_url, history_limit):
         explanation = re.sub(r'<think>.*?</think>', '', explanation, flags=re.DOTALL)
         explanation = re.sub(r'<think>|</think>', '', explanation)
         explanation = explanation.strip()
+        explanation = fix_mojibake(explanation)
         if len(explanation) > 1900:
             explanation = explanation[:1900] + "..."
         await interaction.followup.send(f"**Original message:**\n> {message.content}\n\n**ELI5:**\n{explanation}", ephemeral=True)

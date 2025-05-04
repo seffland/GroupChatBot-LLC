@@ -8,6 +8,11 @@ from sports.nascar import get_last_nascar_cup_winner
 from sports.f1 import get_last_f1_race_winner
 from ollama_client import ask_ollama
 from db import add_message, get_history
+from util import fix_mojibake  # Use the ftfy-based version
+
+# In-memory store for per-channel personalities
+channel_personalities = {}
+OWNER_USER_ID = int(os.getenv('OWNER_USER_ID', '0'))
 
 def setup_on_message(bot, HISTORY_LIMIT):
     # Helper to trim history by total characters (proxy for tokens)
@@ -25,6 +30,20 @@ def setup_on_message(bot, HISTORY_LIMIT):
     @bot.event
     async def on_message(message):
         if message.author.bot:
+            return
+        # --- Personality set command ---
+        if message.content.startswith('!setpersonality'):
+            if message.author.id != OWNER_USER_ID:
+                await message.reply('You are not authorized to set the personality.')
+                return
+            # Everything after the command is the new personality
+            parts = message.content.split(' ', 1)
+            if len(parts) < 2 or not parts[1].strip():
+                await message.reply('Usage: !setpersonality <personality prompt>')
+                return
+            personality = parts[1].strip()
+            channel_personalities[message.channel.id] = personality
+            await message.reply(f"Personality for this channel set to: '{personality}'")
             return
         # Listen for $TICKER in messages and reply with stock price (now global)
         # Match $ followed by 1-5 uppercase letters, ensuring it's a whole word
@@ -77,6 +96,7 @@ def setup_on_message(bot, HISTORY_LIMIT):
                             {"role": "user", "content": f"Here are all the MLB scores from yesterday (or the most recent day with games):\n{summary}\nPlease answer the user's question in a short, concise way (2-3 sentences or a simple list). The user's question: {content}"}
                         ]
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
+                        response = fix_mojibake(response)
                         await message.reply(response)
                         return
                 # NBA scores summary if no team mentioned
@@ -89,6 +109,7 @@ def setup_on_message(bot, HISTORY_LIMIT):
                             {"role": "user", "content": f"Here are all the NBA scores from yesterday (or the most recent day with games):\n{summary}\nPlease answer the user's question in a short, concise way (2-3 sentences or a simple list). The user's question: {content}"}
                         ]
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
+                        response = fix_mojibake(response)
                         await message.reply(response)
                         return
                 # NFL scores summary if no team mentioned
@@ -101,6 +122,7 @@ def setup_on_message(bot, HISTORY_LIMIT):
                             {"role": "user", "content": f"Here are all the NFL scores from yesterday (or the most recent day with games):\n{summary}\nPlease answer the user's question in a short, concise way (2-3 sentences or a simple list). The user's question: {content}"}
                         ]
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
+                        response = fix_mojibake(response)
                         await message.reply(response)
                         return
                 # More robust NASCAR Cup winner detection
@@ -121,6 +143,7 @@ def setup_on_message(bot, HISTORY_LIMIT):
                             {"role": "user", "content": f"Here is the result of the most recent NASCAR Cup race: {summary}\nPlease answer the user's question by repeating the summary exactly. The user's question: {content}"}
                         ]
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
+                        response = fix_mojibake(response)
                         await message.reply(response)
                         return
                 if f1_trigger:
@@ -132,6 +155,7 @@ def setup_on_message(bot, HISTORY_LIMIT):
                             {"role": "user", "content": f"Here is the result of the most recent F1 race: {summary}\nPlease answer the user's question by repeating the summary exactly. The user's question: {content}"}
                         ]
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
+                        response = fix_mojibake(response)
                         await message.reply(response)
                         return
                 # ...existing team-specific logic...
@@ -147,10 +171,13 @@ def setup_on_message(bot, HISTORY_LIMIT):
                 username = msg.get("username", "user")
                 content = msg.get("content", "")
                 formatted_history.append({"role": role, "content": f"{username}: {content}"})
+            # Use channel personality if set, else default
+            system_prompt = channel_personalities.get(channel_id, "You are a helpful assistant. Answer the user's request directly and concisely. Do not summarize previous conversation unless asked.")
             llm_prompt = [
-                {"role": "system", "content": "You are a helpful assistant. Answer the user's request directly and concisely. Do not summarize previous conversation unless asked."}
+                {"role": "system", "content": system_prompt}
             ] + formatted_history
             response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
+            response = fix_mojibake(response)
             add_message(channel_id, "assistant", bot.user.name, response)
             await message.reply(response)
             return
