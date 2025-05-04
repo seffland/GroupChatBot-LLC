@@ -32,16 +32,25 @@ def setup_on_message(bot, HISTORY_LIMIT):
         # --- Personality set command ---
         if message.content.startswith('!setpersonality'):
             if message.author.id != OWNER_USER_ID:
-                await message.reply('You are not authorized to set the personality.')
+                try:
+                    await message.reply('You are not authorized to set the personality.')
+                except Exception:
+                    await message.channel.send('You are not authorized to set the personality.')
                 return
             # Everything after the command is the new personality
             parts = message.content.split(' ', 1)
             if len(parts) < 2 or not parts[1].strip():
-                await message.reply('Usage: !setpersonality <personality prompt>')
+                try:
+                    await message.reply('Usage: !setpersonality <personality prompt>')
+                except Exception:
+                    await message.channel.send('Usage: !setpersonality <personality prompt>')
                 return
             personality = parts[1].strip()
             set_channel_personality(message.channel.id, personality)
-            await message.reply(f"Personality for this channel set to: '{personality}'")
+            try:
+                await message.reply(f"Personality for this channel set to: '{personality}'")
+            except Exception:
+                await message.channel.send(f"Personality for this channel set to: '{personality}'")
             return
         # Listen for $TICKER in messages and reply with stock price (now global)
         # Match $ followed by 1-5 uppercase letters, ensuring it's a whole word
@@ -51,18 +60,30 @@ def setup_on_message(bot, HISTORY_LIMIT):
             try:
                 finnhub_api_key = os.getenv('FINNHUB_API_KEY')
                 if not finnhub_api_key:
-                    await message.reply("Finnhub API key not set.")
+                    try:
+                        await message.reply("Finnhub API key not set.")
+                    except Exception:
+                        await message.channel.send("Finnhub API key not set.")
                     return
                 url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={finnhub_api_key}"
                 resp = requests.get(url, timeout=10)
                 data = resp.json()
                 if 'c' in data and data['c']:
                     price = data['c']
-                    await message.reply(f"${ticker}: ${price}")
+                    try:
+                        await message.reply(f"${ticker}: ${price}")
+                    except Exception:
+                        await message.channel.send(f"${ticker}: ${price}")
                 else:
-                    await message.reply(f"Could not fetch price for ${ticker}.")
+                    try:
+                        await message.reply(f"Could not fetch price for ${ticker}.")
+                    except Exception:
+                        await message.channel.send(f"Could not fetch price for ${ticker}.")
             except Exception as e:
-                await message.reply(f"Error fetching price for ${ticker}: {e}")
+                try:
+                    await message.reply(f"Error fetching price for ${ticker}: {e}")
+                except Exception:
+                    await message.channel.send(f"Error fetching price for ${ticker}: {e}")
         # If the bot is mentioned, treat as a chat request
         if bot.user in message.mentions:
             channel_id = message.channel.id
@@ -95,7 +116,10 @@ def setup_on_message(bot, HISTORY_LIMIT):
                         ]
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
                         response = fix_mojibake(response)
-                        await message.reply(response)
+                        try:
+                            await message.reply(response)
+                        except Exception:
+                            await message.channel.send(response)
                         return
                 # NBA scores summary if no team mentioned
                 if 'nba' in content and not any(team_mentioned(team, content) for g in get_last_nba_games() for team in g['teams']):
@@ -108,7 +132,10 @@ def setup_on_message(bot, HISTORY_LIMIT):
                         ]
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
                         response = fix_mojibake(response)
-                        await message.reply(response)
+                        try:
+                            await message.reply(response)
+                        except Exception:
+                            await message.channel.send(response)
                         return
                 # NFL scores summary if no team mentioned
                 if 'nfl' in content and not any(team_mentioned(team, content) for g in get_last_nfl_games() for team in g['teams']):
@@ -121,7 +148,10 @@ def setup_on_message(bot, HISTORY_LIMIT):
                         ]
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
                         response = fix_mojibake(response)
-                        await message.reply(response)
+                        try:
+                            await message.reply(response)
+                        except Exception:
+                            await message.channel.send(response)
                         return
                 # More robust NASCAR Cup winner detection
                 nascar_trigger = (
@@ -142,7 +172,10 @@ def setup_on_message(bot, HISTORY_LIMIT):
                         ]
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
                         response = fix_mojibake(response)
-                        await message.reply(response)
+                        try:
+                            await message.reply(response)
+                        except Exception:
+                            await message.channel.send(response)
                         return
                 if f1_trigger:
                     f1_result = await get_last_f1_race_winner()
@@ -154,7 +187,10 @@ def setup_on_message(bot, HISTORY_LIMIT):
                         ]
                         response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
                         response = fix_mojibake(response)
-                        await message.reply(response)
+                        try:
+                            await message.reply(response)
+                        except Exception:
+                            await message.channel.send(response)
                         return
                 # ...existing team-specific logic...
             # --- END SPORTS DETECTION ---
@@ -177,7 +213,10 @@ def setup_on_message(bot, HISTORY_LIMIT):
             response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
             response = fix_mojibake(response)
             add_message(channel_id, "assistant", bot.user.name, response)
-            await message.reply(response)
+            try:
+                await message.reply(response)
+            except Exception:
+                await message.channel.send(response)
             return
         channel_id = message.channel.id
         add_message(channel_id, "user", message.author.name, message.content)
