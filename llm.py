@@ -17,14 +17,27 @@ def add_llm_commands(bot, ollama_url, history_limit):
     OLLAMA_URL = ollama_url
     HISTORY_LIMIT = history_limit
 
+    # Helper to trim history by total characters (proxy for tokens)
+    def trim_history_by_chars(history, max_chars=9000):
+        result = []
+        total = 0
+        for msg in reversed(history):
+            msg_str = f"{msg.get('username', 'user')}: {msg.get('content', '')}"
+            if total + len(msg_str) > max_chars:
+                break
+            result.insert(0, msg)
+            total += len(msg_str)
+        return result
+
     @bot.tree.command(name="chat", description="Chat with the llama")
     @app_commands.describe(message="Your message to the llama")
     async def chat(interaction: discord.Interaction, message: str):
         await interaction.response.defer()
         channel_id = interaction.channel_id
         add_message(channel_id, "user", interaction.user.name, message)
-        SHORT_HISTORY_LIMIT = 8
-        history = get_history(channel_id, SHORT_HISTORY_LIMIT)
+        # Use HISTORY_LIMIT and trim by chars for Llama 3 context
+        history = get_history(channel_id, HISTORY_LIMIT)
+        history = trim_history_by_chars(history, max_chars=9000)
         # Prefix username to content for each message
         formatted_history = []
         for msg in history:

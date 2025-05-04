@@ -10,6 +10,18 @@ from ollama_client import ask_ollama
 from db import add_message, get_history
 
 def setup_on_message(bot, HISTORY_LIMIT):
+    # Helper to trim history by total characters (proxy for tokens)
+    def trim_history_by_chars(history, max_chars=9000):
+        result = []
+        total = 0
+        for msg in reversed(history):
+            msg_str = f"{msg.get('username', 'user')}: {msg.get('content', '')}"
+            if total + len(msg_str) > max_chars:
+                break
+            result.insert(0, msg)
+            total += len(msg_str)
+        return result
+
     @bot.event
     async def on_message(message):
         if message.author.bot:
@@ -125,8 +137,9 @@ def setup_on_message(bot, HISTORY_LIMIT):
                 # ...existing team-specific logic...
             # --- END SPORTS DETECTION ---
             add_message(channel_id, "user", message.author.name, content)
-            SHORT_HISTORY_LIMIT = 8
-            history = get_history(channel_id, SHORT_HISTORY_LIMIT)
+            # Use HISTORY_LIMIT and trim by chars for Llama 3 context
+            history = get_history(channel_id, HISTORY_LIMIT)
+            history = trim_history_by_chars(history, max_chars=9000)
             # Prefix username to content for each message
             formatted_history = []
             for msg in history:
