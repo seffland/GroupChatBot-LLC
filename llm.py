@@ -2,12 +2,11 @@ import discord
 from discord import app_commands
 import asyncio
 from ollama_client import ask_ollama
-from db import add_message, get_history, get_messages_after_user_last, get_messages_for_timeframe
+from db import add_message, get_history, get_messages_after_user_last, get_messages_for_timeframe, get_channel_personality
 from sports.mlb import get_live_mlb_games
 from sports.nba import get_live_nba_games
 from sports.nfl import get_live_nfl_games
 import re
-from on_message import channel_personalities  # Import the shared dict
 from util import fix_mojibake  # Import the mojibake fixer
 
 # These will be injected from the main bot file
@@ -48,7 +47,7 @@ def add_llm_commands(bot, ollama_url, history_limit):
             content = msg.get("content", "")
             formatted_history.append({"role": role, "content": f"{username}: {content}"})
         # Use channel personality if set, else default
-        system_prompt = channel_personalities.get(channel_id, "You are a helpful assistant. Answer the user's request directly and concisely. Do not summarize previous conversation unless asked.")
+        system_prompt = get_channel_personality(channel_id) or "You are a helpful assistant. Answer the user's request directly and concisely. Do not summarize previous conversation unless asked."
         llm_prompt = [
             {"role": "system", "content": system_prompt}
         ] + formatted_history
@@ -69,7 +68,7 @@ def add_llm_commands(bot, ollama_url, history_limit):
             await interaction.response.send_message("No new messages since your last message.")
             return
         # Use channel personality if set, else default
-        system_prompt = channel_personalities.get(channel_id, "Summarize the following conversation for me. Be concise and to the point. 50 words or less please.")
+        system_prompt = get_channel_personality(channel_id) or "Summarize the following conversation for me. Be concise and to the point. 50 words or less please."
         summary_prompt = [{
             "role": "system",
             "content": system_prompt
@@ -98,7 +97,7 @@ def add_llm_commands(bot, ollama_url, history_limit):
             await interaction.response.send_message(f"No messages found for timeframe '{timeframe}'.")
             return
         # Use channel personality if set, else default
-        system_prompt = channel_personalities.get(channel_id, f"Summarize the following conversation for the timeframe '{timeframe}'. Be concise and to the point. 500 words or less.")
+        system_prompt = get_channel_personality(channel_id) or f"Summarize the following conversation for the timeframe '{timeframe}'. Be concise and to the point. 500 words or less."
         summary_prompt = [{
             "role": "system",
             "content": system_prompt
@@ -118,7 +117,7 @@ def add_llm_commands(bot, ollama_url, history_limit):
     async def eli5(interaction: discord.Interaction, message: discord.Message):
         await interaction.response.defer()
         # Use channel personality if set, else default
-        system_prompt = channel_personalities.get(interaction.channel_id, "Explain the following message as if you are talking to a 5-year-old. Use simple words and keep it short.")
+        system_prompt = get_channel_personality(interaction.channel_id) or "Explain the following message as if you are talking to a 5-year-old. Use simple words and keep it short."
         prompt = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": message.content}

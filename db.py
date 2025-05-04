@@ -52,6 +52,13 @@ with sqlite3.connect(DB_PATH) as conn:
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # Channel personalities table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS channel_personalities (
+            channel_id INTEGER PRIMARY KEY,
+            personality TEXT
+        )
+    ''')
 
 def add_message(channel_id: int, role: str, username: str, content: str):
     with sqlite3.connect(DB_PATH) as conn:
@@ -348,3 +355,20 @@ def get_quotes(channel_id: int = None, limit: int = 10):
         return [
             {"username": row[0], "content": row[1], "quoted_by": row[2], "timestamp": row[3]} for row in cursor.fetchall()
         ]
+
+def set_channel_personality(channel_id: int, personality: str):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO channel_personalities (channel_id, personality) VALUES (?, ?)",
+            (channel_id, personality)
+        )
+        conn.commit()
+
+def get_channel_personality(channel_id: int) -> str | None:
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.execute(
+            "SELECT personality FROM channel_personalities WHERE channel_id = ?",
+            (channel_id,)
+        )
+        row = cursor.fetchone()
+        return row[0] if row else None

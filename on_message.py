@@ -7,11 +7,9 @@ from sports.nfl import get_last_nfl_games
 from sports.nascar import get_last_nascar_cup_winner
 from sports.f1 import get_last_f1_race_winner
 from ollama_client import ask_ollama
-from db import add_message, get_history
+from db import add_message, get_history, set_channel_personality, get_channel_personality
 from util import fix_mojibake  # Use the ftfy-based version
 
-# In-memory store for per-channel personalities
-channel_personalities = {}
 OWNER_USER_ID = int(os.getenv('OWNER_USER_ID', '0'))
 
 def setup_on_message(bot, HISTORY_LIMIT):
@@ -42,7 +40,7 @@ def setup_on_message(bot, HISTORY_LIMIT):
                 await message.reply('Usage: !setpersonality <personality prompt>')
                 return
             personality = parts[1].strip()
-            channel_personalities[message.channel.id] = personality
+            set_channel_personality(message.channel.id, personality)
             await message.reply(f"Personality for this channel set to: '{personality}'")
             return
         # Listen for $TICKER in messages and reply with stock price (now global)
@@ -172,7 +170,7 @@ def setup_on_message(bot, HISTORY_LIMIT):
                 content = msg.get("content", "")
                 formatted_history.append({"role": role, "content": f"{username}: {content}"})
             # Use channel personality if set, else default
-            system_prompt = channel_personalities.get(channel_id, "You are a helpful assistant. Answer the user's request directly and concisely. Do not summarize previous conversation unless asked.")
+            system_prompt = get_channel_personality(channel_id) or "You are a helpful assistant. Answer the user's request directly and concisely. Do not summarize previous conversation unless asked."
             llm_prompt = [
                 {"role": "system", "content": system_prompt}
             ] + formatted_history
