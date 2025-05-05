@@ -1,6 +1,8 @@
 import os
 import re
 import requests
+import datetime
+import pytz
 from sports.nba import get_last_nba_games
 from sports.mlb import get_last_mlb_games
 from sports.nfl import get_last_nfl_games
@@ -70,10 +72,28 @@ def setup_on_message(bot, HISTORY_LIMIT):
                 data = resp.json()
                 if 'c' in data and data['c']:
                     price = data['c']
+                    percent_change = data.get('dp')
+                    price_str = f"{price:,}"
+                    ts = data.get('t')
+                    show_change = False
+                    if ts:
+                        eastern = pytz.timezone('US/Eastern')
+                        last_update = datetime.datetime.fromtimestamp(ts, tz=eastern)
+                        now = datetime.datetime.now(tz=eastern)
+                        is_weekday = now.weekday() < 5
+                        market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
+                        market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
+                        if is_weekday and market_open <= now <= market_close and last_update.date() == now.date():
+                            show_change = True
+                    if show_change and percent_change is not None:
+                        change_str = f"{percent_change:+.2f}%"
+                        msg = f"${ticker}: ${price_str} ({change_str} today)"
+                    else:
+                        msg = f"${ticker}: ${price_str}"
                     try:
-                        await message.reply(f"${ticker}: ${price}")
+                        await message.reply(msg)
                     except Exception:
-                        await message.channel.send(f"${ticker}: ${price}")
+                        await message.channel.send(msg)
                 else:
                     try:
                         await message.reply(f"Could not fetch price for ${ticker}.")
