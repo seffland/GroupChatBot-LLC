@@ -37,30 +37,36 @@ def add_finance_commands(bot):
         except ImportError:
             import pytz
             eastern = pytz.timezone('America/New_York')
-        now_utc = datetime.utcnow()
-        now_est = now_utc.replace(tzinfo=None).astimezone(eastern) if hasattr(now_utc, 'astimezone') else now_utc
-        now_str = now_est.strftime('%m/%d/%Y')
+        now_est = datetime.now(eastern)
+        now_str = now_est.strftime('%Y-%m-%d %H:%M:%S')  # Store full datetime in EST
         await interaction.response.defer()
         user_id = interaction.user.id
         username = interaction.user.display_name
-        last_ath = db.get_user_ath(user_id)
-        db.set_user_ath(user_id, username, now_str)
+        last_ath = db.get_user_ath(user_id)  # Fetch before updating
         gif_url = "https://tenor.com/view/kucoin-kcs-ethereum-eth-bitcoin-gif-18569399"
         if last_ath:
-            # Parse last_ath as MM/DD/YYYY or fallback to just show 'unknown' if parsing fails
-            from datetime import datetime, timedelta
             try:
-                last_ath_dt = datetime.strptime(last_ath, '%m/%d/%Y')
-                now_dt = datetime.strptime(now_str, '%m/%d/%Y')
-                delta = now_dt - last_ath_dt
-                days = delta.days
-                hours = delta.seconds // 3600
-                minutes = (delta.seconds % 3600) // 60
-                ago_str = f"{days}d {hours}h {minutes}m ago" if days or hours or minutes else "just now"
-            except Exception:
+                last_ath_dt = datetime.strptime(last_ath, '%Y-%m-%d %H:%M:%S')
+                last_ath_dt = eastern.localize(last_ath_dt) if hasattr(eastern, 'localize') else last_ath_dt.replace(tzinfo=eastern)
+                delta = now_est - last_ath_dt
+                total_seconds = int(delta.total_seconds())
+                days = total_seconds // 86400
+                hours = (total_seconds % 86400) // 3600
+                minutes = (total_seconds % 3600) // 60
+                seconds = total_seconds % 60
+                if days:
+                    ago_str = f"{days}d {hours}h {minutes}m ago"
+                elif hours:
+                    ago_str = f"{hours}h {minutes}m ago"
+                elif minutes:
+                    ago_str = f"{minutes}m {seconds}s ago"
+                else:
+                    ago_str = f"{seconds}s ago"
+            except Exception as e:
                 ago_str = "unknown"
             msg = f"<@{user_id}> just hit a new ALL TIME HIGH on net worth! 🚀\nLast ATH: {ago_str}"
         else:
             msg = f"<@{user_id}> just hit their FIRST ALL TIME HIGH on net worth! 🚀"
+        db.set_user_ath(user_id, username, now_str)  # Update after calculating difference
         await interaction.followup.send(msg)
         await interaction.followup.send(gif_url)
