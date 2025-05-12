@@ -59,6 +59,14 @@ with sqlite3.connect(DB_PATH) as conn:
             personality TEXT
         )
     ''')
+    # Track user all-time high (ATH) events
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS user_ath (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            last_ath DATETIME
+        )
+    ''')
 
 def add_message(channel_id: int, role: str, username: str, content: str):
     with sqlite3.connect(DB_PATH) as conn:
@@ -372,3 +380,20 @@ def get_channel_personality(channel_id: int) -> str | None:
         )
         row = cursor.fetchone()
         return row[0] if row else None
+
+def get_user_ath(user_id: int):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.execute(
+            "SELECT last_ath FROM user_ath WHERE user_id = ?",
+            (user_id,)
+        )
+        row = cursor.fetchone()
+        return row[0] if row else None
+
+def set_user_ath(user_id: int, username: str, timestamp: str):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO user_ath (user_id, username, last_ath) VALUES (?, ?, ?)",
+            (user_id, username, timestamp)
+        )
+        conn.commit()
