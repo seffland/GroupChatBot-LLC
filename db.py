@@ -110,7 +110,7 @@ def get_last_imported_message_id(channel_id: int) -> int:
             (channel_id,)
         )
         row = cursor.fetchone()
-        return row[0] if row else None
+        return row[0] if row else 0
 
 def set_last_imported_message_id(channel_id: int, message_id: int):
     with sqlite3.connect(DB_PATH) as conn:
@@ -348,7 +348,9 @@ def add_quote(channel_id: int, message_id: int, username: str, content: str, quo
         )
         conn.commit()
 
-def get_quotes(channel_id: int = None, limit: int = 10):
+from typing import Optional
+
+def get_quotes(channel_id: Optional[int] = None, limit: int = 10):
     with sqlite3.connect(DB_PATH) as conn:
         if channel_id:
             cursor = conn.execute(

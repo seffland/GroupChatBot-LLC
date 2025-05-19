@@ -35,10 +35,11 @@ def add_llm_commands(bot, ollama_url, history_limit):
     @app_commands.describe(message="Your message to the llama")
     async def chat(interaction: discord.Interaction, message: str):
         await interaction.response.defer()
-        channel_id = interaction.channel_id
+        channel_id = interaction.channel_id if interaction.channel_id is not None else 0
         add_message(channel_id, "user", interaction.user.name, message)
         # Use HISTORY_LIMIT and trim by chars for Llama 3 context
-        history = get_history(channel_id, HISTORY_LIMIT)
+        history_limit = HISTORY_LIMIT if HISTORY_LIMIT is not None else 100  # Use a sensible default
+        history = get_history(channel_id, history_limit)
         history = trim_history_by_chars(history, max_chars=9000)
         # Prefix username to content for each message
         formatted_history = []
@@ -62,7 +63,7 @@ def add_llm_commands(bot, ollama_url, history_limit):
 
     @bot.tree.command(name="tldr", description="Summarize everything since you last sent a message in this channel")
     async def tldr(interaction: discord.Interaction):
-        channel_id = interaction.channel_id
+        channel_id = interaction.channel_id if interaction.channel_id is not None else 0
         username = interaction.user.name
         messages = get_messages_after_user_last(channel_id, username)
         if not messages:
@@ -76,7 +77,6 @@ def add_llm_commands(bot, ollama_url, history_limit):
         }] + messages
         await interaction.response.defer()
         summary = ask_ollama(summary_prompt, OLLAMA_URL)
-        import re
         summary = re.sub(r'<think>.*?</think>', '', summary, flags=re.DOTALL)
         summary = re.sub(r'<think>|</think>', '', summary)
         summary = summary.strip()
@@ -88,7 +88,7 @@ def add_llm_commands(bot, ollama_url, history_limit):
     @bot.tree.command(name="summarize", description="Summarize all messages in this channel for a given timeframe (today, yesterday, this_month, all)")
     @app_commands.describe(timeframe="Timeframe to summarize: today, yesterday, this_month, or all")
     async def summarize(interaction: discord.Interaction, timeframe: str):
-        channel_id = interaction.channel_id
+        channel_id = interaction.channel_id if interaction.channel_id is not None else 0
         valid_timeframes = {"today", "yesterday", "this_month", "all"}
         if timeframe not in valid_timeframes:
             await interaction.response.send_message("Please provide a valid timeframe: today, yesterday, this_month, or all.")
@@ -104,8 +104,7 @@ def add_llm_commands(bot, ollama_url, history_limit):
             "content": system_prompt
         }] + messages
         await interaction.response.defer()
-        summary = ask_ollama(summary_prompt, OLLAMA_URL)
-        import re
+        summary = await asyncio.to_thread(ask_ollama, summary_prompt, OLLAMA_URL)
         summary = re.sub(r'<think>.*?</think>', '', summary, flags=re.DOTALL)
         summary = re.sub(r'<think>|</think>', '', summary)
         summary = summary.strip()
@@ -125,20 +124,21 @@ def add_llm_commands(bot, ollama_url, history_limit):
         if interaction.user.id != OWNER_USER_ID and interaction.user.id not in ADDITIONAL_ADMINS:
             await interaction.response.send_message("You are not authorized to set the personality.")
             return
-        set_channel_personality(interaction.channel_id, personality)
+        channel_id = interaction.channel_id if interaction.channel_id is not None else 0
+        set_channel_personality(channel_id, personality)
         await interaction.response.send_message(f"Personality for this channel set to: '{personality}'")
 
     @bot.tree.context_menu(name="ELI5 (Explain Like I'm 5)")
     async def eli5(interaction: discord.Interaction, message: discord.Message):
         await interaction.response.defer()
+        channel_id = interaction.channel_id if interaction.channel_id is not None else 0
         # Use channel personality if set, else default
-        system_prompt = get_channel_personality(interaction.channel_id) or "Explain the following message as if you are talking to a 5-year-old. Use simple words and keep it short."
+        system_prompt = get_channel_personality(channel_id) or "Explain the following message as if you are talking to a 5-year-old. Use simple words and keep it short."
         prompt = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": message.content}
         ]
         explanation = ask_ollama(prompt, OLLAMA_URL)
-        import re
         explanation = re.sub(r'<think>.*?</think>', '', explanation, flags=re.DOTALL)
         explanation = re.sub(r'<think>|</think>', '', explanation)
         explanation = explanation.strip()
