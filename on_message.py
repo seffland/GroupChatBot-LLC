@@ -198,7 +198,7 @@ def setup_on_message(bot, HISTORY_LIMIT):
                             await message.channel.send(response)
                         return
                 if f1_trigger:
-                    f1_result = await get_last_f1_race_winner()
+                    f1_result = await get_last_f1_race_winner() # type: ignore
                     if f1_result:
                         summary = f"{f1_result['winner']} won the {f1_result['race']} at {f1_result['location']} on {f1_result['date']}."
                         llm_prompt = [

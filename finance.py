@@ -9,20 +9,15 @@ PRODUCTION_SERVER_ID = os.getenv('PRODUCTION_SERVER_ID')
 def add_finance_commands(bot):
     @bot.tree.command(name="btc", description="Get the current price of Bitcoin (BTC)")
     async def btc(interaction: discord.Interaction):
-        """Returns the current price of Bitcoin in USD and 24h percent change."""
+        """Returns the current price of Bitcoin in USD (from Coinbase)."""
         await interaction.response.defer()
         try:
-            url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true"
+            url = "https://api.coinbase.com/v2/prices/spot?currency=USD"
             response = requests.get(url, timeout=10)
             data = response.json()
-            price = data["bitcoin"]["usd"]
-            change = data["bitcoin"].get("usd_24h_change", None)
-            price_str = f"{price:,}"
-            if change is not None:
-                change_str = f"{change:+.2f}%"
-                await interaction.followup.send(f"Current BTC price: ${price_str} USD ({change_str} 24h)")
-            else:
-                await interaction.followup.send(f"Current BTC price: ${price_str} USD (24h change unavailable)")
+            price = float(data["data"]["amount"])
+            price_str = f"{price:,.2f}"
+            await interaction.followup.send(f"Current BTC price: ${price_str} USD")
         except Exception as e:
             await interaction.followup.send(f"Error fetching BTC price: {e}")
 
@@ -47,7 +42,7 @@ def add_finance_commands(bot):
         if last_ath:
             try:
                 last_ath_dt = datetime.strptime(last_ath, '%Y-%m-%d %H:%M:%S')
-                last_ath_dt = eastern.localize(last_ath_dt) if hasattr(eastern, 'localize') else last_ath_dt.replace(tzinfo=eastern)
+                last_ath_dt = eastern.localize(last_ath_dt) if hasattr(eastern, 'localize') else last_ath_dt.replace(tzinfo=eastern) # type: ignore
                 delta = now_est - last_ath_dt
                 total_seconds = int(delta.total_seconds())
                 days = total_seconds // 86400
