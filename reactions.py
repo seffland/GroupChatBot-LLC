@@ -315,3 +315,78 @@ def add_reaction_commands(bot):
         else:
             users_str = ', '.join(f"**{user}**" for user in loved_users)
             await interaction.followup.send(f"It's a tie! The most loved users are {users_str} with {max_hearts} :heart: reactions received each!\n\nLeaderboard:\n{leaderboard_str}")
+
+    @bot.tree.command(name="agreeable", description="Declare the most agreeable user based on :thumbsup: reactions in this channel")
+    @app_commands.describe(days="Number of days to look back, today, yesterday, or 'all' for all time")
+    async def agreeable(interaction: discord.Interaction, days: str):
+        channel = interaction.channel
+        await interaction.response.defer(thinking=True)
+        if not isinstance(channel, discord.TextChannel):
+            await interaction.followup.send("This command can only be used in text channels.")
+            return
+        # Timeframe logic (same as funniest)
+        if days.lower() == 'all':
+            after = None
+            before = None
+        elif days.lower() == 'today':
+            from datetime import datetime, time, timezone
+            try:
+                from zoneinfo import ZoneInfo
+                eastern = ZoneInfo('America/New_York')
+            except ImportError:
+                import pytz
+                eastern = pytz.timezone('America/New_York')
+            now_est = datetime.now(eastern)
+            today_start_est = datetime.combine(now_est.date(), time(hour=0, minute=0), tzinfo=eastern)
+            after = today_start_est.astimezone(timezone.utc)
+            before = None
+        elif days.lower() == 'yesterday':
+            from datetime import datetime, time, timedelta, timezone
+            try:
+                from zoneinfo import ZoneInfo
+                eastern = ZoneInfo('America/New_York')
+            except ImportError:
+                import pytz
+                eastern = pytz.timezone('America/New_York')
+            now_est = datetime.now(eastern)
+            yesterday_date = now_est.date() - timedelta(days=1)
+            y_start_est = datetime.combine(yesterday_date, time(hour=0, minute=0), tzinfo=eastern)
+            y_end_est = datetime.combine(now_est.date(), time(hour=0, minute=0), tzinfo=eastern)
+            after = y_start_est.astimezone(timezone.utc)
+            before = y_end_est.astimezone(timezone.utc)
+        else:
+            try:
+                days_int = int(days)
+                from datetime import datetime, timedelta, timezone
+                after = datetime.now(timezone.utc) - timedelta(days=days_int)
+                before = None
+            except ValueError:
+                await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
+                return
+        user_thumbsup_received = {}
+        async for msg in channel.history(limit=None, oldest_first=True, after=after, before=before):
+            thumbsup_count = 0
+            for reaction in msg.reactions:
+                is_thumbsup = False
+                if str(reaction.emoji) == '👍':
+                    is_thumbsup = True
+                elif not isinstance(reaction.emoji, str) and getattr(reaction.emoji, 'name', None) == 'thumbsup':
+                    is_thumbsup = True
+                elif str(reaction.emoji) == ':thumbsup:':
+                    is_thumbsup = True
+                if is_thumbsup:
+                    thumbsup_count += reaction.count
+            if thumbsup_count > 0:
+                user_thumbsup_received[msg.author.name] = user_thumbsup_received.get(msg.author.name, 0) + thumbsup_count
+        if not user_thumbsup_received:
+            await interaction.followup.send("No :thumbsup: reactions found in this channel for the given period.")
+            return
+        max_thumbsup = max(user_thumbsup_received.values())
+        agreeable_users = [user for user, count in user_thumbsup_received.items() if count == max_thumbsup]
+        leaderboard = sorted(user_thumbsup_received.items(), key=lambda x: x[1], reverse=True)
+        leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :thumbsup:" for i, (user, count) in enumerate(leaderboard)])
+        if len(agreeable_users) == 1:
+            await interaction.followup.send(f"The most agreeable user is **{agreeable_users[0]}** with {max_thumbsup} :thumbsup: reactions received!\n\nLeaderboard:\n{leaderboard_str}")
+        else:
+            users_str = ', '.join(f"**{user}**" for user in agreeable_users)
+            await interaction.followup.send(f"It's a tie! The most agreeable users are {users_str} with {max_thumbsup} :thumbsup: reactions received each!\n\nLeaderboard:\n{leaderboard_str}")
