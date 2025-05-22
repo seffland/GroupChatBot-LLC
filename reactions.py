@@ -81,7 +81,7 @@ def add_reaction_commands(bot):
             users_str = ', '.join(f"**{user}**" for user in funniest_users)
             await interaction.followup.send(f"It's a tie! The funniest users are {users_str} with {max_joy} :joy: reactions received each!\n\nLeaderboard:\n{leaderboard_str}")
 
-    @bot.tree.command(name="stingy", description="Declare the stingiest user based on who gives out the least :joy: reactions in this channel")
+    @bot.tree.command(name="stingy", description="Declare the stingiest user based on who gives out the least reactions in this channel")
     @app_commands.describe(days="Number of days to look back, today, yesterday, or 'all' for all time")
     async def stingy(interaction: discord.Interaction, days: str):
         channel = interaction.channel
@@ -127,45 +127,36 @@ def add_reaction_commands(bot):
             except ValueError:
                 await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
                 return
-        user_joy_given = {}
-        users_with_messages = set()
+        user_reactions_given = {}
+        # Get all non-bot members of the channel
+        all_members = [member for member in channel.members if not member.bot]
         async for msg in channel.history(limit=None, oldest_first=True, after=after, before=before):
-            if not msg.author.bot:
-                users_with_messages.add(msg.author.name)
             for reaction in msg.reactions:
-                is_joy = False
-                if str(reaction.emoji) == '😂':
-                    is_joy = True
-                elif not isinstance(reaction.emoji, str) and getattr(reaction.emoji, 'name', None) == 'joy':
-                    is_joy = True
-                elif isinstance(reaction.emoji, str) and reaction.emoji == ':joy:':
-                    is_joy = True
-                if is_joy:
-                    users = []
-                    try:
-                        users = [user async for user in reaction.users()]
-                    except Exception:
+                users = []
+                try:
+                    users = [user async for user in reaction.users()]
+                except Exception:
+                    continue
+                for user in users:
+                    if user.bot:
                         continue
-                    for user in users:
-                        if user.bot:
-                            continue
-                        user_joy_given[user.name] = user_joy_given.get(user.name, 0) + 1
-        # Ensure all users with messages are in the dict, even if they gave 0 :joy:
-        for user in users_with_messages:
-            if user not in user_joy_given:
-                user_joy_given[user] = 0
-        if not user_joy_given:
-            await interaction.followup.send("Everyone is stingy! No :joy: reactions were given in this channel for the given period.")
+                    user_reactions_given[user.name] = user_reactions_given.get(user.name, 0) + 1
+        # Ensure all channel members are in the dict, even if they gave 0 reactions
+        for member in all_members:
+            if member.name not in user_reactions_given:
+                user_reactions_given[member.name] = 0
+        if not user_reactions_given:
+            await interaction.followup.send("Everyone is stingy! No reactions were given in this channel for the given period.")
             return
-        min_joy = min(user_joy_given.values())
-        stingiest_users = [user for user, count in user_joy_given.items() if count == min_joy]
-        leaderboard = sorted(user_joy_given.items(), key=lambda x: x[1])
-        leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :joy:" for i, (user, count) in enumerate(leaderboard)])
+        min_reactions = min(user_reactions_given.values())
+        stingiest_users = [user for user, count in user_reactions_given.items() if count == min_reactions]
+        leaderboard = sorted(user_reactions_given.items(), key=lambda x: x[1])
+        leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} reactions" for i, (user, count) in enumerate(leaderboard)])
         if len(stingiest_users) == 1:
-            await interaction.followup.send(f"The stingiest user is **{stingiest_users[0]}** with only {min_joy} :joy: reactions given!\n\nLeaderboard (least to most):\n{leaderboard_str}")
+            await interaction.followup.send(f"The stingiest user is **{stingiest_users[0]}** with only {min_reactions} reactions given!\n\nLeaderboard (least to most):\n{leaderboard_str}")
         else:
             users_str = ', '.join(f"**{user}**" for user in stingiest_users)
-            await interaction.followup.send(f"It's a tie! The stingiest users are {users_str} with only {min_joy} :joy: reactions given each!\n\nLeaderboard (least to most):\n{leaderboard_str}")
+            await interaction.followup.send(f"It's a tie! The stingiest users are {users_str} with only {min_reactions} reactions given each!\n\nLeaderboard (least to most):\n{leaderboard_str}")
 
     @bot.tree.command(name="disagreeable", description="Declare the most disagreeable user based on :thumbsdown: reactions in this channel")
     @app_commands.describe(days="Number of days to look back, today, yesterday, or 'all' for all time")
