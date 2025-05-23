@@ -127,10 +127,17 @@ def add_reaction_commands(bot):
             except ValueError:
                 await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
                 return
+        
         user_reactions_given = {}
-        # Get all non-bot members of the channel
-        all_members = [member for member in channel.members if not member.bot]
+        users_with_messages = set()
+        users_who_reacted = set()
+        
         async for msg in channel.history(limit=None, oldest_first=True, after=after, before=before):
+            # Track users who sent messages
+            if not msg.author.bot:
+                users_with_messages.add(msg.author.name)
+            
+            # Track users who gave reactions
             for reaction in msg.reactions:
                 users = []
                 try:
@@ -140,11 +147,14 @@ def add_reaction_commands(bot):
                 for user in users:
                     if user.bot:
                         continue
+                    users_who_reacted.add(user.name)
                     user_reactions_given[user.name] = user_reactions_given.get(user.name, 0) + 1
-        # Ensure all channel members are in the dict, even if they gave 0 reactions
-        for member in all_members:
-            if member.name not in user_reactions_given:
-                user_reactions_given[member.name] = 0
+        
+        # Ensure all users who sent messages OR reacted are in the dict, even if they gave 0 reactions
+        all_active_users = users_with_messages.union(users_who_reacted)
+        for user in all_active_users:
+            if user not in user_reactions_given:
+                user_reactions_given[user] = 0
         if not user_reactions_given:
             await interaction.followup.send("Everyone is stingy! No reactions were given in this channel for the given period.")
             return
