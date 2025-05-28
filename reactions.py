@@ -1,5 +1,6 @@
 import discord
 from discord import app_commands
+import asyncio
 
 # Add all reaction-based commands to the bot
 
@@ -12,6 +13,8 @@ def add_reaction_commands(bot):
         if not isinstance(channel, discord.TextChannel):
             await interaction.followup.send("This command can only be used in text channels.")
             return
+        
+        # Parse time frame
         if days.lower() == 'all':
             after = None
             before = None
@@ -50,11 +53,29 @@ def add_reaction_commands(bot):
             except ValueError:
                 await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
                 return
+
         user_joy_received = {}
-        if not isinstance(channel, discord.TextChannel):
-            await interaction.followup.send("This command can only be used in text channels.")
-            return
-        async for msg in channel.history(limit=None, oldest_first=True, after=after, before=before):
+          # For 'all' time queries, add progress updates (no message limit)
+        if days.lower() == 'all':
+            # No limit - analyze all messages in channel history
+            limit = None
+            await interaction.edit_original_response(content="⏳ Analyzing ALL channel history for :joy: reactions... This may take several minutes for large channels.")
+        else:
+            limit = None
+
+        message_count = 0
+        last_update = 0
+        
+        async for msg in channel.history(limit=limit, oldest_first=True, after=after, before=before):
+            message_count += 1
+            
+            # Send progress update every 1500 messages for 'all' queries
+            if days.lower() == 'all' and message_count - last_update >= 1500:
+                await interaction.edit_original_response(content=f"⏳ Processed {message_count:,} messages so far...")
+                last_update = message_count
+                # Add a small delay to prevent rate limiting
+                await asyncio.sleep(0.1)
+            
             joy_count = 0
             for reaction in msg.reactions:
                 is_joy = False
@@ -68,18 +89,26 @@ def add_reaction_commands(bot):
                     joy_count += reaction.count
             if joy_count > 0:
                 user_joy_received[msg.author.name] = user_joy_received.get(msg.author.name, 0) + joy_count
+        
         if not user_joy_received:
-            await interaction.followup.send("No :joy: reactions found in this channel for the given period.")
+            await interaction.edit_original_response(content="No :joy: reactions found in this channel for the given period.")
             return
+        
         max_joy = max(user_joy_received.values())
         funniest_users = [user for user, count in user_joy_received.items() if count == max_joy]
         leaderboard = sorted(user_joy_received.items(), key=lambda x: x[1], reverse=True)
         leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :joy:" for i, (user, count) in enumerate(leaderboard)])
+        
+        # Add footer with performance info
+        footer = f"\n\n📊 Analyzed {message_count:,} messages"
+        if days.lower() == 'all':
+            footer += " (complete channel history)"
+        
         if len(funniest_users) == 1:
-            await interaction.followup.send(f"The funniest user is **{funniest_users[0]}** with {max_joy} :joy: reactions received!\n\nLeaderboard:\n{leaderboard_str}")
+            await interaction.edit_original_response(content=f"The funniest user is **{funniest_users[0]}** with {max_joy} :joy: reactions received!\n\nLeaderboard:\n{leaderboard_str}{footer}")
         else:
             users_str = ', '.join(f"**{user}**" for user in funniest_users)
-            await interaction.followup.send(f"It's a tie! The funniest users are {users_str} with {max_joy} :joy: reactions received each!\n\nLeaderboard:\n{leaderboard_str}")
+            await interaction.edit_original_response(content=f"It's a tie! The funniest users are {users_str} with {max_joy} :joy: reactions received each!\n\nLeaderboard:\n{leaderboard_str}{footer}")
 
     @bot.tree.command(name="stingy", description="Declare the stingiest user based on who gives out the least reactions in this channel")
     @app_commands.describe(days="Number of days to look back, today, yesterday, or 'all' for all time")
@@ -89,6 +118,8 @@ def add_reaction_commands(bot):
         if not isinstance(channel, discord.TextChannel):
             await interaction.followup.send("This command can only be used in text channels.")
             return
+        
+        # Parse time frame (same logic as funniest)
         if days.lower() == 'all':
             after = None
             before = None
@@ -131,8 +162,27 @@ def add_reaction_commands(bot):
         user_reactions_given = {}
         users_with_messages = set()
         users_who_reacted = set()
+          # For 'all' time queries, add progress updates (no message limit)
+        if days.lower() == 'all':
+            # No limit - analyze all messages in channel history
+            limit = None
+            await interaction.edit_original_response(content="⏳ Analyzing ALL channel history for reaction patterns... This may take several minutes for large channels.")
+        else:
+            limit = None
+
+        message_count = 0
+        last_update = 0
         
-        async for msg in channel.history(limit=None, oldest_first=True, after=after, before=before):
+        async for msg in channel.history(limit=limit, oldest_first=True, after=after, before=before):
+            message_count += 1
+            
+            # Send progress update every 1500 messages for 'all' queries
+            if days.lower() == 'all' and message_count - last_update >= 1500:
+                await interaction.edit_original_response(content=f"⏳ Processed {message_count:,} messages so far...")
+                last_update = message_count
+                # Add a small delay to prevent rate limiting
+                await asyncio.sleep(0.1)
+            
             # Track users who sent messages
             if not msg.author.bot:
                 users_with_messages.add(msg.author.name)
@@ -155,18 +205,25 @@ def add_reaction_commands(bot):
         for user in all_active_users:
             if user not in user_reactions_given:
                 user_reactions_given[user] = 0
+        
         if not user_reactions_given:
-            await interaction.followup.send("Everyone is stingy! No reactions were given in this channel for the given period.")
+            await interaction.edit_original_response(content="Everyone is stingy! No reactions were given in this channel for the given period.")
             return
+        
         min_reactions = min(user_reactions_given.values())
         stingiest_users = [user for user, count in user_reactions_given.items() if count == min_reactions]
         leaderboard = sorted(user_reactions_given.items(), key=lambda x: x[1])
         leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} reactions" for i, (user, count) in enumerate(leaderboard)])
+          # Add footer with performance info
+        footer = f"\n\n📊 Analyzed {message_count:,} messages"
+        if days.lower() == 'all':
+            footer += " (complete channel history)"
+        
         if len(stingiest_users) == 1:
-            await interaction.followup.send(f"The stingiest user is **{stingiest_users[0]}** with only {min_reactions} reactions given!\n\nLeaderboard (least to most):\n{leaderboard_str}")
+            await interaction.edit_original_response(content=f"The stingiest user is **{stingiest_users[0]}** with only {min_reactions} reactions given!\n\nLeaderboard (least to most):\n{leaderboard_str}{footer}")
         else:
             users_str = ', '.join(f"**{user}**" for user in stingiest_users)
-            await interaction.followup.send(f"It's a tie! The stingiest users are {users_str} with only {min_reactions} reactions given each!\n\nLeaderboard (least to most):\n{leaderboard_str}")
+            await interaction.edit_original_response(content=f"It's a tie! The stingiest users are {users_str} with only {min_reactions} reactions given each!\n\nLeaderboard (least to most):\n{leaderboard_str}{footer}")
 
     @bot.tree.command(name="disagreeable", description="Declare the most disagreeable user based on :thumbsdown: reactions in this channel")
     @app_commands.describe(days="Number of days to look back, today, yesterday, or 'all' for all time")
@@ -176,7 +233,8 @@ def add_reaction_commands(bot):
         if not isinstance(channel, discord.TextChannel):
             await interaction.followup.send("This command can only be used in text channels.")
             return
-        # Timeframe logic (same as funniest)
+        
+        # Parse time frame (same logic as funniest)
         if days.lower() == 'all':
             after = None
             before = None
@@ -215,8 +273,29 @@ def add_reaction_commands(bot):
             except ValueError:
                 await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
                 return
+        
         user_thumbsdown_received = {}
-        async for msg in channel.history(limit=None, oldest_first=True, after=after, before=before):
+          # For 'all' time queries, add progress updates (no message limit)
+        if days.lower() == 'all':
+            # No limit - analyze all messages in channel history
+            limit = None
+            await interaction.edit_original_response(content="⏳ Analyzing ALL channel history for :thumbsdown: reactions... This may take several minutes for large channels.")
+        else:
+            limit = None
+
+        message_count = 0
+        last_update = 0
+        
+        async for msg in channel.history(limit=limit, oldest_first=True, after=after, before=before):
+            message_count += 1
+            
+            # Send progress update every 1500 messages for 'all' queries
+            if days.lower() == 'all' and message_count - last_update >= 1500:
+                await interaction.edit_original_response(content=f"⏳ Processed {message_count:,} messages so far...")
+                last_update = message_count
+                # Add a small delay to prevent rate limiting
+                await asyncio.sleep(0.1)
+            
             thumbsdown_count = 0
             for reaction in msg.reactions:
                 is_thumbsdown = False
@@ -230,18 +309,26 @@ def add_reaction_commands(bot):
                     thumbsdown_count += reaction.count
             if thumbsdown_count > 0:
                 user_thumbsdown_received[msg.author.name] = user_thumbsdown_received.get(msg.author.name, 0) + thumbsdown_count
+        
         if not user_thumbsdown_received:
-            await interaction.followup.send("No :thumbsdown: reactions found in this channel for the given period.")
+            await interaction.edit_original_response(content="No :thumbsdown: reactions found in this channel for the given period.")
             return
+        
         max_thumbsdown = max(user_thumbsdown_received.values())
         disagreeable_users = [user for user, count in user_thumbsdown_received.items() if count == max_thumbsdown]
         leaderboard = sorted(user_thumbsdown_received.items(), key=lambda x: x[1], reverse=True)
         leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :thumbsdown:" for i, (user, count) in enumerate(leaderboard)])
+        
+        # Add footer with performance info
+        footer = f"\n\n📊 Analyzed {message_count:,} messages"
+        if days.lower() == 'all':
+            footer += " (complete channel history)"
+        
         if len(disagreeable_users) == 1:
-            await interaction.followup.send(f"The most disagreeable user is **{disagreeable_users[0]}** with {max_thumbsdown} :thumbsdown: reactions received!\n\nLeaderboard:\n{leaderboard_str}")
+            await interaction.edit_original_response(content=f"The most disagreeable user is **{disagreeable_users[0]}** with {max_thumbsdown} :thumbsdown: reactions received!\n\nLeaderboard:\n{leaderboard_str}{footer}")
         else:
             users_str = ', '.join(f"**{user}**" for user in disagreeable_users)
-            await interaction.followup.send(f"It's a tie! The most disagreeable users are {users_str} with {max_thumbsdown} :thumbsdown: reactions received each!\n\nLeaderboard:\n{leaderboard_str}")
+            await interaction.edit_original_response(content=f"It's a tie! The most disagreeable users are {users_str} with {max_thumbsdown} :thumbsdown: reactions received each!\n\nLeaderboard:\n{leaderboard_str}{footer}")
 
     @bot.tree.command(name="loved", description="Declare the most loved user based on :heart: reactions in this channel")
     @app_commands.describe(days="Number of days to look back, today, yesterday, or 'all' for all time")
@@ -251,6 +338,8 @@ def add_reaction_commands(bot):
         if not isinstance(channel, discord.TextChannel):
             await interaction.followup.send("This command can only be used in text channels.")
             return
+        
+        # Parse time frame (same logic as funniest)
         if days.lower() == 'all':
             after = None
             before = None
@@ -289,8 +378,29 @@ def add_reaction_commands(bot):
             except ValueError:
                 await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
                 return
+        
         user_heart_received = {}
-        async for msg in channel.history(limit=None, oldest_first=True, after=after, before=before):
+          # For 'all' time queries, add progress updates (no message limit)
+        if days.lower() == 'all':
+            # No limit - analyze all messages in channel history
+            limit = None
+            await interaction.edit_original_response(content="⏳ Analyzing ALL channel history for :heart: reactions... This may take several minutes for large channels.")
+        else:
+            limit = None
+
+        message_count = 0
+        last_update = 0
+        
+        async for msg in channel.history(limit=limit, oldest_first=True, after=after, before=before):
+            message_count += 1
+            
+            # Send progress update every 1500 messages for 'all' queries
+            if days.lower() == 'all' and message_count - last_update >= 1500:
+                await interaction.edit_original_response(content=f"⏳ Processed {message_count:,} messages so far...")
+                last_update = message_count
+                # Add a small delay to prevent rate limiting
+                await asyncio.sleep(0.1)
+            
             heart_count = 0
             for reaction in msg.reactions:
                 is_heart = False
@@ -304,18 +414,26 @@ def add_reaction_commands(bot):
                     heart_count += reaction.count
             if heart_count > 0:
                 user_heart_received[msg.author.name] = user_heart_received.get(msg.author.name, 0) + heart_count
+        
         if not user_heart_received:
-            await interaction.followup.send("No :heart: reactions found in this channel for the given period.")
+            await interaction.edit_original_response(content="No :heart: reactions found in this channel for the given period.")
             return
+        
         max_hearts = max(user_heart_received.values())
         loved_users = [user for user, count in user_heart_received.items() if count == max_hearts]
         leaderboard = sorted(user_heart_received.items(), key=lambda x: x[1], reverse=True)
         leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :heart:" for i, (user, count) in enumerate(leaderboard)])
+        
+        # Add footer with performance info
+        footer = f"\n\n📊 Analyzed {message_count:,} messages"
+        if days.lower() == 'all':
+            footer += " (complete channel history)"
+        
         if len(loved_users) == 1:
-            await interaction.followup.send(f"The most loved user is **{loved_users[0]}** with {max_hearts} :heart: reactions received!\n\nLeaderboard:\n{leaderboard_str}")
+            await interaction.edit_original_response(content=f"The most loved user is **{loved_users[0]}** with {max_hearts} :heart: reactions received!\n\nLeaderboard:\n{leaderboard_str}{footer}")
         else:
             users_str = ', '.join(f"**{user}**" for user in loved_users)
-            await interaction.followup.send(f"It's a tie! The most loved users are {users_str} with {max_hearts} :heart: reactions received each!\n\nLeaderboard:\n{leaderboard_str}")
+            await interaction.edit_original_response(content=f"It's a tie! The most loved users are {users_str} with {max_hearts} :heart: reactions received each!\n\nLeaderboard:\n{leaderboard_str}{footer}")
 
     @bot.tree.command(name="agreeable", description="Declare the most agreeable user based on :thumbsup: reactions in this channel")
     @app_commands.describe(days="Number of days to look back, today, yesterday, or 'all' for all time")
@@ -325,7 +443,8 @@ def add_reaction_commands(bot):
         if not isinstance(channel, discord.TextChannel):
             await interaction.followup.send("This command can only be used in text channels.")
             return
-        # Timeframe logic (same as funniest)
+        
+        # Parse time frame (same logic as funniest)
         if days.lower() == 'all':
             after = None
             before = None
@@ -364,8 +483,29 @@ def add_reaction_commands(bot):
             except ValueError:
                 await interaction.followup.send("Please provide a number of days (e.g. 7), 'today', 'yesterday', or 'all'.")
                 return
+        
         user_thumbsup_received = {}
-        async for msg in channel.history(limit=None, oldest_first=True, after=after, before=before):
+          # For 'all' time queries, add progress updates (no message limit)
+        if days.lower() == 'all':
+            # No limit - analyze all messages in channel history
+            limit = None
+            await interaction.edit_original_response(content="⏳ Analyzing ALL channel history for :thumbsup: reactions... This may take several minutes for large channels.")
+        else:
+            limit = None
+
+        message_count = 0
+        last_update = 0
+        
+        async for msg in channel.history(limit=limit, oldest_first=True, after=after, before=before):
+            message_count += 1
+            
+            # Send progress update every 1500 messages for 'all' queries
+            if days.lower() == 'all' and message_count - last_update >= 1500:
+                await interaction.edit_original_response(content=f"⏳ Processed {message_count:,} messages so far...")
+                last_update = message_count
+                # Add a small delay to prevent rate limiting
+                await asyncio.sleep(0.1)
+            
             thumbsup_count = 0
             for reaction in msg.reactions:
                 is_thumbsup = False
@@ -379,15 +519,23 @@ def add_reaction_commands(bot):
                     thumbsup_count += reaction.count
             if thumbsup_count > 0:
                 user_thumbsup_received[msg.author.name] = user_thumbsup_received.get(msg.author.name, 0) + thumbsup_count
+        
         if not user_thumbsup_received:
-            await interaction.followup.send("No :thumbsup: reactions found in this channel for the given period.")
+            await interaction.edit_original_response(content="No :thumbsup: reactions found in this channel for the given period.")
             return
+        
         max_thumbsup = max(user_thumbsup_received.values())
         agreeable_users = [user for user, count in user_thumbsup_received.items() if count == max_thumbsup]
         leaderboard = sorted(user_thumbsup_received.items(), key=lambda x: x[1], reverse=True)
         leaderboard_str = '\n'.join([f"{i+1}. {user} - {count} :thumbsup:" for i, (user, count) in enumerate(leaderboard)])
+        
+        # Add footer with performance info
+        footer = f"\n\n📊 Analyzed {message_count:,} messages"
+        if days.lower() == 'all':
+            footer += " (complete channel history)"
+        
         if len(agreeable_users) == 1:
-            await interaction.followup.send(f"The most agreeable user is **{agreeable_users[0]}** with {max_thumbsup} :thumbsup: reactions received!\n\nLeaderboard:\n{leaderboard_str}")
+            await interaction.edit_original_response(content=f"The most agreeable user is **{agreeable_users[0]}** with {max_thumbsup} :thumbsup: reactions received!\n\nLeaderboard:\n{leaderboard_str}{footer}")
         else:
             users_str = ', '.join(f"**{user}**" for user in agreeable_users)
-            await interaction.followup.send(f"It's a tie! The most agreeable users are {users_str} with {max_thumbsup} :thumbsup: reactions received each!\n\nLeaderboard:\n{leaderboard_str}")
+            await interaction.edit_original_response(content=f"It's a tie! The most agreeable users are {users_str} with {max_thumbsup} :thumbsup: reactions received each!\n\nLeaderboard:\n{leaderboard_str}{footer}")
