@@ -9,23 +9,12 @@ from sports.nfl import get_last_nfl_games
 from sports.nascar import get_last_nascar_cup_winner
 from sports.f1 import get_last_f1_race_winner
 from ollama_client import ask_ollama
-from db import add_message, get_history, set_channel_personality, get_channel_personality
+from db import add_message, set_channel_personality, get_channel_personality
 from util import fix_mojibake  # Use the ftfy-based version
 
 OWNER_USER_ID = int(os.getenv('OWNER_USER_ID', '0'))
 
 def setup_on_message(bot, HISTORY_LIMIT):
-    # Helper to trim history by total characters (proxy for tokens)
-    def trim_history_by_chars(history, max_chars=9000):
-        result = []
-        total = 0
-        for msg in reversed(history):
-            msg_str = f"{msg.get('username', 'user')}: {msg.get('content', '')}"
-            if total + len(msg_str) > max_chars:
-                break
-            result.insert(0, msg)
-            total += len(msg_str)
-        return result
 
     @bot.event
     async def on_message(message):
@@ -215,21 +204,12 @@ def setup_on_message(bot, HISTORY_LIMIT):
                 # ...existing team-specific logic...
             # --- END SPORTS DETECTION ---
             add_message(channel_id, "user", message.author.name, content)
-            # Use HISTORY_LIMIT and trim by chars for Llama 3 context
-            history = get_history(channel_id, HISTORY_LIMIT)
-            history = trim_history_by_chars(history, max_chars=9000)
-            # Prefix username to content for each message
-            formatted_history = []
-            for msg in history:
-                role = msg.get("role", "user")
-                username = msg.get("username", "user")
-                content = msg.get("content", "")
-                formatted_history.append({"role": role, "content": f"{username}: {content}"})
             # Use channel personality if set, else default
-            system_prompt = get_channel_personality(channel_id) or "You are a helpful assistant. Answer the user's request directly and concisely. Do not summarize previous conversation unless asked."
+            system_prompt = get_channel_personality(channel_id) or "You are a helpful assistant. Answer the user's request directly and concisely."
             llm_prompt = [
-                {"role": "system", "content": system_prompt}
-            ] + formatted_history
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"{message.author.name}: {content}"}
+            ]
             response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
             response = fix_mojibake(response)
             add_message(channel_id, "assistant", bot.user.name, response)
