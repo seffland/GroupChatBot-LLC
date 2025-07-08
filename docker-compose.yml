@@ -9,6 +9,7 @@ services:
       - plexllm_app-network
     volumes:
       - ./data:/app/data
+    restart: unless-stopped
 
 networks:
   plexllm_app-network:
