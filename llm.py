@@ -39,10 +39,19 @@ def add_llm_commands(bot, ollama_url, history_limit):
         add_message(channel_id, "user", interaction.user.name, message)
         # Use channel personality if set, else default
         system_prompt = get_channel_personality(channel_id) or "You are a helpful assistant. Answer the user's request directly and concisely."
-        llm_prompt = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"{interaction.user.name}: {message}"}
-        ]
+        # Fetch recent message history for context
+        history = get_history(channel_id, limit=20)
+        llm_prompt = [{"role": "system", "content": system_prompt}]
+        # Add conversation history (excluding the message we just added)
+        for msg in history[:-1]:  # Skip the last message since that's the one we just added
+            if msg['role'] == 'user':
+                llm_prompt.append({"role": "user", "content": f"{msg['username']}: {msg['content']}"})
+            else:
+                llm_prompt.append({"role": "assistant", "content": msg['content']})
+        # Trim history by character count to stay within limits
+        llm_prompt = trim_history_by_chars(llm_prompt, max_chars=9000)
+        # Add current message
+        llm_prompt.append({"role": "user", "content": f"{interaction.user.name}: {message}"})
         try:
             response = await asyncio.to_thread(ask_ollama, llm_prompt, OLLAMA_URL)
         except Exception as e:

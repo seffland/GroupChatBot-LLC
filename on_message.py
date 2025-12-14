@@ -206,10 +206,31 @@ def setup_on_message(bot, HISTORY_LIMIT):
             add_message(channel_id, "user", message.author.name, content)
             # Use channel personality if set, else default
             system_prompt = get_channel_personality(channel_id) or "You are a helpful assistant. Answer the user's request directly and concisely."
-            llm_prompt = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"{message.author.name}: {content}"}
-            ]
+            # Import get_history for context
+            from db import get_history
+            # Fetch recent message history for context
+            history = get_history(channel_id, limit=20)
+            llm_prompt = [{"role": "system", "content": system_prompt}]
+            # Add conversation history (excluding the message we just added)
+            for msg in history[:-1]:  # Skip the last message since that's the one we just added
+                if msg['role'] == 'user':
+                    llm_prompt.append({"role": "user", "content": f"{msg['username']}: {msg['content']}"})
+                else:
+                    llm_prompt.append({"role": "assistant", "content": msg['content']})
+            # Trim history by character count to stay within limits
+            def trim_history_by_chars(history, max_chars=9000):
+                result = []
+                total = len(history[0]['content'])  # Start with system prompt
+                for msg in reversed(history[1:]):
+                    msg_str = f"{msg.get('content', '')}"
+                    if total + len(msg_str) > max_chars:
+                        break
+                    result.insert(0, msg)
+                    total += len(msg_str)
+                return [history[0]] + result
+            llm_prompt = trim_history_by_chars(llm_prompt, max_chars=9000)
+            # Add current message
+            llm_prompt.append({"role": "user", "content": f"{message.author.name}: {content}"})
             response = ask_ollama(llm_prompt, os.getenv('OLLAMA_URL', 'http://plexllm-ollama-1:11434'))
             response = fix_mojibake(response)
             add_message(channel_id, "assistant", bot.user.name, response)
