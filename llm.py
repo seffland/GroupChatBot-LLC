@@ -39,10 +39,27 @@ def add_llm_commands(bot, ollama_url, history_limit):
         add_message(channel_id, "user", interaction.user.name, message)
         # Use channel personality if set, else default
         system_prompt = get_channel_personality(channel_id) or "You are a helpful assistant. Answer the user's request directly and concisely."
-        llm_prompt = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"{interaction.user.name}: {message}"}
-        ]
+        # Fetch recent message history for context (reduced to 5 messages to avoid confusion)
+        history = get_history(channel_id, limit=5)
+        # Strong instruction so model answers only the latest user message
+        guard = (
+            "Important: Use the conversation history only for context. "
+            "Answer ONLY the user's most recent message below. Do NOT repeat, summarize, or respond to earlier messages unless explicitly asked."
+        )
+        # Build a compact history block (context only)
+        history_items = history[:-1]  # skip the last entry which is the current message we just stored
+        history_text = ""
+        for msg in history_items:
+            if msg['role'] == 'user':
+                history_text += f"USER ({msg.get('username','user')}): {msg.get('content','')}\n"
+            else:
+                history_text += f"ASSISTANT: {msg.get('content','')}\n"
+        # System prompt with guard followed by a single system message containing the context
+        llm_prompt = [{"role": "system", "content": system_prompt + "\n\n" + guard}]
+        if history_text:
+            llm_prompt.append({"role": "system", "content": "Conversation history (context only):\n" + history_text})
+        # Add current message as the single user turn the LLM should answer
+        llm_prompt.append({"role": "user", "content": f"{interaction.user.name}: {message}"})
         try:
             response = await asyncio.to_thread(ask_ollama, llm_prompt, OLLAMA_URL)
         except Exception as e:
