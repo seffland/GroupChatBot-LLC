@@ -39,6 +39,7 @@ def add_llm_commands(bot, ollama_url, history_limit):
         add_message(channel_id, "user", interaction.user.name, message)
         # Use channel personality if set, else default
         system_prompt = get_channel_personality(channel_id) or "You are a helpful assistant. Answer the user's request directly and concisely."
+<<<<<<< HEAD
         # Fetch recent message history for context (reduced to 5 messages to avoid confusion)
         history = get_history(channel_id, limit=5)
         # Strong instruction so model answers only the latest user message
@@ -59,6 +60,20 @@ def add_llm_commands(bot, ollama_url, history_limit):
         if history_text:
             llm_prompt.append({"role": "system", "content": "Conversation history (context only):\n" + history_text})
         # Add current message as the single user turn the LLM should answer
+=======
+        # Fetch recent message history for context
+        history = get_history(channel_id, limit=20)
+        llm_prompt = [{"role": "system", "content": system_prompt}]
+        # Add conversation history (excluding the message we just added)
+        for msg in history[:-1]:  # Skip the last message since that's the one we just added
+            if msg['role'] == 'user':
+                llm_prompt.append({"role": "user", "content": f"{msg['username']}: {msg['content']}"})
+            else:
+                llm_prompt.append({"role": "assistant", "content": msg['content']})
+        # Trim history by character count to stay within limits
+        llm_prompt = trim_history_by_chars(llm_prompt, max_chars=9000)
+        # Add current message
+>>>>>>> 83041854d4debc7a33a75d225530313f7bde20b9
         llm_prompt.append({"role": "user", "content": f"{interaction.user.name}: {message}"})
         try:
             response = await asyncio.to_thread(ask_ollama, llm_prompt, OLLAMA_URL)
